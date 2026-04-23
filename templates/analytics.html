@@ -1,0 +1,297 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row mb-4 magic-reveal" style="--magic-delay:0.02s">
+    <div class="col-12 d-flex flex-wrap align-items-start justify-content-between gap-3">
+        <div class="flex-grow-1" style="min-width: min(100%, 18rem);">
+            <h2 class="fw-bold">Analytics dashboard</h2>
+            <p class="text-muted mb-1">Power trends from stored snapshots; device usage combines voice commands and dashboard or schedule toggles. The heatmap below maps log-based activity by weekday and hour (local time).</p>
+            <p class="small text-muted mb-0">Charts use <a href="https://www.chartjs.org/" target="_blank" rel="noopener">Chart.js</a>. Estimated load (W) uses typical draw per device type ({{ snapshot_count }} snapshot{% if snapshot_count != 1 %}s{% endif %} stored).</p>
+        </div>
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <span class="small text-muted text-nowrap d-none d-md-inline">Export report</span>
+            <a href="{{ url_for('analytics_export', format='csv') }}" class="btn btn-sm btn-outline-primary rounded-pill" title="{% if current_user.username == 'admin' %}ZIP: summary, device_usage, energy_daily_kwh, activity_logs{% else %}ZIP: summary, device_usage, energy_daily_kwh (activity_logs: admins only){% endif %}">
+                <i class="bi bi-file-earmark-zip me-1"></i> CSV (zip)
+            </a>
+            <a href="{{ url_for('analytics_export', format='pdf') }}" class="btn btn-sm btn-primary rounded-pill">
+                <i class="bi bi-file-earmark-pdf me-1"></i> PDF
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4 magic-reveal" style="--magic-delay:0.07s">
+    <div class="col-6 col-xl-3">
+        <div class="stat-tile stat-tile--primary h-100">
+            <div class="stat-tile__icon"><i class="bi bi-cpu"></i></div>
+            <div class="stat-tile__meta">
+                <span class="stat-tile__label">Total devices</span>
+                <span class="stat-tile__value">{{ device_total }}</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-xl-3">
+        <div class="stat-tile stat-tile--success h-100">
+            <div class="stat-tile__icon"><i class="bi bi-lightning-charge-fill"></i></div>
+            <div class="stat-tile__meta">
+                <span class="stat-tile__label">Devices on now</span>
+                <span class="stat-tile__value">{{ on_device_count }}</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-xl-3">
+        <div class="stat-tile stat-tile--info h-100">
+            <div class="stat-tile__icon"><i class="bi bi-activity"></i></div>
+            <div class="stat-tile__meta">
+                <span class="stat-tile__label">Usage events</span>
+                <span class="stat-tile__value">{{ total_usage_events }}</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-xl-3">
+        <div class="stat-tile stat-tile--warning h-100">
+            <div class="stat-tile__icon"><i class="bi bi-trophy-fill"></i></div>
+            <div class="stat-tile__meta">
+                <span class="stat-tile__label">Most used device</span>
+                {% if most_used_device and most_used_count > 0 %}
+                <span class="stat-tile__value text-truncate d-block" style="font-size:1.2rem;max-width:100%" title="{{ most_used_device.name }} — {{ most_used_device.room.name }}">{{ most_used_device.name }}</span>
+                <span class="small text-muted fw-normal">{{ most_used_count }} event{% if most_used_count != 1 %}s{% endif %} · {{ most_used_device.room.name }}</span>
+                {% else %}
+                <span class="stat-tile__value">—</span>
+                <span class="small text-muted fw-normal">No activity yet</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-2 magic-reveal" style="--magic-delay:0.1s">
+    <div class="col-md-6 col-xl-3">
+        <div class="card custom-card border-0 shadow-sm h-100 p-3">
+            <div class="d-flex align-items-center gap-3">
+                <div class="rounded-3 bg-primary bg-opacity-10 text-primary p-3"><i class="bi bi-box-seam fs-4"></i></div>
+                <div>
+                    <div class="text-muted small text-uppercase fw-semibold" style="letter-spacing:0.04em">Rooms</div>
+                    <div class="fs-3 fw-bold">{{ room_total }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-xl-3">
+        <div class="card custom-card border-0 shadow-sm h-100 p-3">
+            <div class="d-flex align-items-center gap-3">
+                <div class="rounded-3 bg-success bg-opacity-10 text-success p-3"><i class="bi bi-chat-dots fs-4"></i></div>
+                <div>
+                    <div class="text-muted small text-uppercase fw-semibold" style="letter-spacing:0.04em">Commands OK</div>
+                    <div class="fs-3 fw-bold">{{ successful_commands_total }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-6">
+        <div class="card custom-card border-0 shadow-sm h-100 p-3 d-flex align-items-center">
+            <p class="small text-muted mb-0"><i class="bi bi-info-circle me-1"></i> <strong>Usage events</strong> count successful voice commands per device plus each dashboard toggle or schedule run (duplicated command lines in logs are not counted twice).</p>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4 magic-reveal" style="--magic-delay:0.12s">
+    <div class="col-12">
+        <div class="card custom-card h-100 border-0 shadow-sm">
+            <div class="card-header bg-transparent fw-semibold d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <span>Device usage (event count)</span>
+                {% if most_used_device and most_used_count > 0 %}
+                <span class="badge bg-warning text-dark rounded-pill">Top: {{ most_used_device.name }} ({{ most_used_count }})</span>
+                {% endif %}
+            </div>
+            <div class="card-body" style="min-height: 220px;">
+                {% if device_total > 0 %}
+                <canvas id="usageChart" height="120"></canvas>
+                {% if total_usage_events == 0 %}
+                <p class="text-muted small mb-0 mt-2">Toggle devices, use voice commands, or wait for schedules — usage will appear here.</p>
+                {% endif %}
+                {% else %}
+                <p class="text-muted small text-center mb-0 py-4">Add devices to see usage breakdown.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4 magic-reveal" style="--magic-delay:0.11s">
+    <div class="col-12">
+        <div class="card custom-card h-100 border-0 shadow-sm">
+            <div class="card-header bg-transparent border-0 fw-semibold d-flex flex-wrap align-items-center justify-content-between gap-2">
+                <span>Usage heatmap (weekday × hour, local time)</span>
+                {% if heatmap_max and heatmap_max > 0 %}
+                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill" title="Highest count in any single cell in this period">Peak: {{ heatmap_max }} event{{ 's' if heatmap_max != 1 else '' }}</span>
+                {% endif %}
+            </div>
+            <p class="small text-muted mb-0 px-3">Each cell counts log-based device events (toggles and schedules) in that <strong>weekday and clock hour</strong> over the last <strong>{{ heatmap_days }} days</strong>. Timestamps are bucketed using the <strong>server’s local time</strong>. The bar chart above also includes successful voice commands from command history.</p>
+            <div class="card-body">
+                {% if heatmap_max and heatmap_max > 0 %}
+                <p class="small mb-3 text-body">Strongest single slot: <strong class="text-danger">{{ heatmap_peak_label }}</strong> — and every cell with that same maximum count is outlined below.</p>
+                {% set wdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] %}
+                <div class="usage-heatmap-wrap">
+                    <div class="usage-heatmap" role="img" aria-label="Device usage by weekday and hour">
+                        <div class="usage-heatmap__r usage-heatmap__r--head d-flex align-items-stretch">
+                            <div class="usage-heatmap__cell usage-heatmap__corner" aria-hidden="true"></div>
+                            {% for h in range(24) %}
+                            <div class="usage-heatmap__hx" title="Hour {{ h }}">{{ h }}</div>
+                            {% endfor %}
+                        </div>
+                        {% for w in range(7) %}
+                        <div class="usage-heatmap__r d-flex align-items-stretch">
+                            <div class="usage-heatmap__wlabel" title="Weekday">{{ wdays[w] }}</div>
+                            {% for h in range(24) %}
+                            {% set c = heatmap_matrix[w][h] %}
+                            <div class="usage-heatmap__cell
+                                {% if c == 0 %} usage-heatmap__cell--empty{% else %} usage-heatmap__cell--fill{% endif %}
+                                {% if c > 0 and c == heatmap_max %} usage-heatmap__cell--peak{% endif %}"
+                                 style="--h: {{ (c * 100.0 / heatmap_max) | round(1) if heatmap_max else 0 }};"
+                                 title="{{ wdays[w] }}{% if h < 10 %}0{% endif %}{{ h }}:00 – {{ c }} event{% if c != 1 %}s{% endif %}"
+                            >{% if c > 0 %}<span class="usage-heatmap__n">{{ c }}</span>{% endif %}</div>
+                            {% endfor %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="d-flex flex-wrap align-items-center gap-2 small text-muted mt-3">
+                    <span>Low</span>
+                    <div class="usage-heatmap__legend" aria-hidden="true"></div>
+                    <span>High</span>
+                </div>
+                {% else %}
+                <p class="text-muted small mb-0">Not enough data for a heatmap yet. Toggle devices, run scheduled actions, and check back when logs have timestamps in the window.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4 magic-reveal" style="--magic-delay:0.14s">
+    <div class="col-md-8">
+        <div class="card custom-card h-100 border-0 shadow-sm">
+            <div class="card-header bg-transparent fw-semibold">Daily peak estimated load (last 7 days)</div>
+            <div class="card-body">
+                <canvas id="weeklyChart" height="110"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card custom-card h-100 border-0 shadow-sm">
+            <div class="card-header bg-transparent fw-semibold">Current draw by room (ON devices)</div>
+            <div class="card-body d-flex align-items-center justify-content-center">
+                {% if room_labels and total_on_watts > 0 %}
+                <canvas id="roomChart"></canvas>
+                {% else %}
+                <p class="text-muted small text-center mb-0 px-2">No active load — turn devices on to see how power splits across rooms.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // @ts-nocheck
+    document.addEventListener("DOMContentLoaded", function() {
+        const usageLabels = {{ usage_chart_labels | tojson }};
+        const usageValues = {{ usage_chart_values | tojson }};
+        const usageColors = {{ usage_chart_colors | tojson }};
+        const ctxUsage = document.getElementById('usageChart');
+        if (ctxUsage && usageLabels.length) {
+            new Chart(ctxUsage, {
+                type: 'bar',
+                data: {
+                    labels: usageLabels,
+                    datasets: [{
+                        label: 'Usage events',
+                        data: usageValues,
+                        backgroundColor: usageColors.length ? usageColors : ['rgba(67, 97, 238, 0.75)'],
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            ticks: { precision: 0 },
+                            title: { display: true, text: 'Events' }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    return ' ' + ctx.parsed.x + ' event' + (ctx.parsed.x === 1 ? '' : 's');
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        const weeklyLabels = {{ weekly_labels | tojson }};
+        const weeklyKw = {{ weekly_kw | tojson }};
+
+        const ctxWeek = document.getElementById('weeklyChart');
+        if (ctxWeek) {
+            new Chart(ctxWeek, {
+                type: 'bar',
+                data: {
+                    labels: weeklyLabels,
+                    datasets: [{
+                        label: 'Peak estimated kW',
+                        data: weeklyKw,
+                        backgroundColor: 'rgba(67, 97, 238, 0.75)',
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { beginAtZero: true, title: { display: true, text: 'kW' } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        const roomLabels = {{ room_labels | tojson }};
+        const roomWatts = {{ room_watts | tojson }};
+        const roomColors = {{ room_colors | tojson }};
+        const ctxRoom = document.getElementById('roomChart');
+        if (ctxRoom && roomLabels.length && roomWatts.some(w => w > 0)) {
+            new Chart(ctxRoom, {
+                type: 'doughnut',
+                data: {
+                    labels: roomLabels.map((name, i) => `${name} (${roomWatts[i]} W)`),
+                    datasets: [{
+                        data: roomWatts,
+                        backgroundColor: roomColors.length ? roomColors : ['#4361ee']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 10 } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    const total = ctx.dataset.data.reduce((a, b) => a + b, 0) || 1;
+                                    const pct = ((ctx.raw / total) * 100).toFixed(1);
+                                    return ctx.label.split(' (')[0] + ': ' + ctx.raw + ' W (' + pct + '%)';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

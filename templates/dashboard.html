@@ -1,0 +1,265 @@
+{% extends "base.html" %}
+{% macro device_icon(dtype) -%}
+    {%- if dtype == 'Light' -%}<i class="bi bi-lightbulb-fill"></i>
+    {%- elif dtype == 'Fan' -%}<i class="bi bi-fan"></i>
+    {%- elif dtype == 'AC' -%}<i class="bi bi-snow"></i>
+    {%- elif dtype == 'Lock' -%}<i class="bi bi-shield-lock-fill"></i>
+    {%- elif dtype == 'Heater' -%}<i class="bi bi-fire"></i>
+    {%- else -%}<i class="bi bi-hdd-network-fill"></i>
+    {%- endif -%}
+{%- endmacro %}
+
+{% block content %}
+<!-- ── 3-D Hero ────────────────────────────────────────────────── -->
+<div class="hero-3d-scene mb-3">
+    <div class="hero-3d-inner">
+        <!-- Decoration layers -->
+        <div class="hero-grid-overlay" aria-hidden="true"></div>
+        <div class="hero-blob hero-blob--1" aria-hidden="true"></div>
+        <div class="hero-blob hero-blob--2" aria-hidden="true"></div>
+        <div class="hero-ring hero-ring--1" aria-hidden="true"></div>
+        <div class="hero-ring hero-ring--2" aria-hidden="true"></div>
+        <div class="hero-ring hero-ring--3" aria-hidden="true"></div>
+        <div class="hero-particle hero-particle--a" aria-hidden="true"></div>
+        <div class="hero-particle hero-particle--b" aria-hidden="true"></div>
+        <div class="hero-particle hero-particle--c" aria-hidden="true"></div>
+        <div class="hero-particle hero-particle--d" aria-hidden="true"></div>
+        <div class="hero-particle hero-particle--e" aria-hidden="true"></div>
+        <!-- Content -->
+        <div class="row align-items-center position-relative" style="z-index:2;">
+            <div class="col-lg-5 mb-4 mb-lg-0">
+                <div class="hero-status-pill">
+                    <span class="hero-status-dot"></span> System Live
+                </div>
+                <h1 class="fw-bold display-6 mb-2 magic-gradient-text">Hello, {{ current_user.username }}</h1>
+                <p class="text-muted mb-0 fs-6">{{ devices|length }} device{% if devices|length != 1 %}s{% endif %} &nbsp;·&nbsp; <span id="dashboardOnDevicesText">{{ on_devices }}</span> on</p>
+            </div>
+            <div class="col-lg-7">
+                <!-- ── AI Chat Panel ── -->
+                <div class="ai-chat-panel" id="aiChatPanel">
+                    <div class="ai-chat-header">
+                        <span class="ai-chat-badge"><i class="bi bi-robot me-1"></i>AI Assistant</span>
+                        <span class="ai-chat-hint">Speak or type — I'll talk back!</span>
+                        <button type="button" class="ai-speaker-btn ai-speaker--on" id="aiSpeakerBtn" title="AI voice ON — click to mute">
+                            <i class="bi bi-volume-up-fill"></i>
+                        </button>
+                        <button type="button" class="ai-chat-clear-btn" id="aiClearBtn" title="Clear chat"><i class="bi bi-trash3"></i></button>
+                    </div>
+                    <div class="ai-chat-messages" id="aiChatMessages">
+                        <!-- Welcome bubble -->
+                        <div class="ai-bubble ai-bubble--bot">
+                            <span class="ai-bubble__avatar"><i class="bi bi-robot"></i></span>
+                            <div class="ai-bubble__body">
+                                <div class="ai-bubble__text">👋 Hi <strong>{{ current_user.username }}</strong>! I'm your Smart Home AI.<br>
+                                Type or <strong>🎙️ speak</strong> — say <em>"Turn on the fan"</em>, <em>"What's on?"</em>, <em>"Show energy"</em> and more.</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="ai-chat-suggestions" id="aiSuggestions">
+                        <button class="ai-sugg-btn" data-msg="What devices are on?">💡 What's on?</button>
+                        <button class="ai-sugg-btn" data-msg="Show device status">📋 Status</button>
+                        <button class="ai-sugg-btn" data-msg="Show energy usage">⚡ Energy</button>
+                        <button class="ai-sugg-btn" data-msg="Give me tips">💡 Tips</button>
+                        <button class="ai-sugg-btn" data-msg="Turn everything off">🌙 All off</button>
+                    </div>
+                    <form id="aiChatForm" class="ai-chat-input-row" autocomplete="off">
+                        <button type="button" class="ai-mic-btn" id="aiMicBtn" aria-label="Voice command" title="Click to speak">
+                            <i class="bi bi-mic-fill"></i>
+                        </button>
+                        <input type="text" id="aiChatInput" class="ai-chat-input" placeholder="Ask anything or speak 🎙️…" aria-label="AI command input" autocomplete="off">
+                        <button type="submit" class="ai-chat-send-btn" id="aiSendBtn" aria-label="Send">
+                            <i class="bi bi-send-fill"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<div class="row g-3 mb-3 magic-reveal" id="dashboard-quick-stats" style="--magic-delay:0.1s">
+    <div class="col-6 col-md-4">
+        <a href="{{ url_for('rooms') }}" class="stat-tile stat-tile--primary stat-tile--link h-100 {% if request.endpoint == 'rooms' %}stat-tile--active-route{% endif %}" aria-label="Rooms: {{ rooms|length }}. Open rooms.">
+            <div class="stat-tile__icon"><i class="bi bi-grid-1x2" aria-hidden="true"></i></div>
+            <div class="stat-tile__meta">
+                <span class="stat-tile__label">Rooms</span>
+                <span class="stat-tile__value">{{ rooms|length }}</span>
+            </div>
+        </a>
+    </div>
+    <div class="col-6 col-md-4">
+        <a href="{{ url_for('devices') }}" class="stat-tile stat-tile--info stat-tile--link h-100 {% if request.endpoint == 'devices' %}stat-tile--active-route{% endif %}" aria-label="Devices: {{ devices|length }}. Open all devices.">
+            <div class="stat-tile__icon"><i class="bi bi-cpu" aria-hidden="true"></i></div>
+            <div class="stat-tile__meta">
+                <span class="stat-tile__label">Devices</span>
+                <span class="stat-tile__value">{{ devices|length }}</span>
+            </div>
+        </a>
+    </div>
+    <div class="col-12 col-md-4">
+        <a href="{{ url_for('dashboard', show='active') }}" class="stat-tile stat-tile--success stat-tile--link h-100 {% if dashboard_show == 'active' %}stat-tile--active-route{% endif %}" aria-label="Active devices: {{ on_devices }}. Show powered-on devices on dashboard.">
+            <div class="stat-tile__icon"><i class="bi bi-lightning-charge-fill" aria-hidden="true"></i></div>
+            <div class="stat-tile__meta">
+                <span class="stat-tile__label">Active</span>
+                <span class="stat-tile__value" id="statActiveDevicesCount">{{ on_devices }}</span>
+            </div>
+        </a>
+    </div>
+</div>
+
+{% include 'includes/system_health.html' %}
+
+{% include 'includes/smart_recommendations.html' %}
+
+{% with show_predictions_link=True %}
+{% include 'includes/predictions_section.html' %}
+{% endwith %}
+
+<div id="dashboard-devices-section" class="d-flex flex-wrap align-items-end justify-content-between gap-3 mb-3 magic-reveal" style="--magic-delay:0.05s">
+    <div>
+        <h2 class="h4 fw-bold mb-1">Devices</h2>
+        <p class="text-muted small mb-0">
+            {% if device_filter_active_only %}
+            Showing <strong>powered-on</strong> devices only.
+            <a href="{{ url_for('dashboard') }}" class="text-decoration-none">Show all</a>
+            {% else %}
+            Tap a card or use the toggle to control power. Drag the grip to reorder; your layout is saved.
+            {% endif %}
+        </p>
+    </div>
+    <a href="{{ url_for('add_device') }}" class="btn btn-sm btn-primary rounded-pill px-3">Add device</a>
+    <a href="{{ url_for('devices') }}" class="btn btn-sm btn-outline-primary rounded-pill px-3">Manage all</a>
+</div>
+
+<div id="dashboardDeviceGrid" class="row g-4 mb-4 magic-reveal" style="--magic-delay:0.12s" role="list" aria-label="Device cards; drag to reorder" data-dashboard-dnd>
+    {% for device in devices if not device_filter_active_only or device.status %}
+    <div class="col-sm-6 col-xl-4 col-xxl-3 dashboard-device-col" data-device-id="{{ device.id }}" draggable="true" role="listitem">
+        <article id="card-{{ device.id }}"
+                 class="device-dash-card h-100 {% if device.status %}device-dash-card--on{% else %}device-dash-card--off{% endif %}"
+                 data-device-id="{{ device.id }}">
+            <div class="device-dash-card__shine" aria-hidden="true"></div>
+            <div class="device-dash-card__body">
+                <div class="device-dash-card__top">
+                    <span class="device-dash-dnd-handle text-muted" title="Drag to reorder" aria-label="Drag to reorder card"><i class="bi bi-grip-vertical" aria-hidden="true"></i></span>
+                    <div class="device-dash-card__icon" aria-hidden="true">
+                        {{ device_icon(device.type) }}
+                    </div>
+                    <span id="status-{{ device.id }}" class="device-dash-card__power {% if device.status %}device-dash-card__power--on{% else %}device-dash-card__power--off{% endif %}">
+                        {% if device.status %}ON{% else %}OFF{% endif %}
+                    </span>
+                </div>
+                <h3 class="device-dash-card__title text-truncate" title="{{ device.name }}">{{ device.name }}</h3>
+                <p class="device-dash-card__room mb-0">
+                    <i class="bi bi-geo-alt"></i> {{ device.room.name }}
+                </p>
+                <div class="device-dash-card__type text-muted small">{{ device.type }}</div>
+                <div class="device-dash-card__actions" data-no-dnd>
+                    <label class="device-dash-toggle mb-0">
+                        <span class="visually-hidden">Power {{ device.name }}</span>
+                        <input type="checkbox" id="switch-{{ device.id }}" {% if device.status %}checked{% endif %} onchange="toggleDevice({{ device.id }})">
+                        <span class="device-dash-toggle__track" aria-hidden="true"><span class="device-dash-toggle__thumb"></span></span>
+                    </label>
+                    <button type="button" class="btn btn-sm device-dash-btn-toggle" onclick="document.getElementById('switch-{{ device.id }}').click();">
+                        Toggle
+                    </button>
+                </div>
+            </div>
+        </article>
+    </div>
+    {% else %}
+    <div class="col-12">
+        <div class="empty-devices rounded-4 p-5 text-center">
+            {% if device_filter_active_only %}
+            <i class="bi bi-lightning-charge display-4 text-muted mb-3 d-block"></i>
+            <h3 class="h5 fw-semibold">Nothing is on right now</h3>
+            <p class="text-muted mb-3">Turn on a device from the full list, or relax in the dark.</p>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-primary rounded-pill px-4">Show all devices</a>
+            {% else %}
+            <i class="bi bi-outlet display-4 text-muted mb-3 d-block"></i>
+            <h3 class="h5 fw-semibold">No devices yet</h3>
+            <p class="text-muted mb-3">Add your first device to see it here.</p>
+            <a href="{{ url_for('add_device') }}" class="btn btn-primary rounded-pill px-4">Add device</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="row g-4 magic-reveal" style="--magic-delay:0.14s">
+    <div class="{% if current_user.username == 'admin' %}col-lg-8{% else %}col-lg-12{% endif %}">
+        <div class="card custom-card border-0 shadow-sm h-100">
+            <div class="card-header bg-transparent border-0 d-flex flex-wrap align-items-center gap-2 pt-4 px-4">
+                <span class="fw-semibold">Estimated load trend</span>
+                <span class="small text-muted">Now ~{{ current_estimated_kw }} kW</span>
+                <a href="{{ url_for('analytics') }}" class="btn btn-sm btn-outline-primary rounded-pill ms-lg-auto">Analytics</a>
+            </div>
+            <div class="card-body px-4 pb-4">
+                <p class="small text-muted mb-2">Daily peaks from stored snapshots when you change devices or modes.</p>
+                <canvas id="powerChart" height="90"></canvas>
+            </div>
+        </div>
+    </div>
+    {% if current_user.username == 'admin' %}
+    <div class="col-lg-4">
+        <div class="card custom-card border-0 shadow-sm">
+            <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center pt-4 px-4">
+                <span class="fw-semibold">Recent activity</span>
+                <a href="{{ url_for('view_logs') }}" class="btn btn-sm btn-link text-decoration-none">Logs</a>
+            </div>
+            <div class="card-body px-4 pb-4">
+                {% for log in logs %}
+                <div class="log-item mb-2">
+                    <div class="small fw-semibold">{{ log.action }}</div>
+                    <div class="text-muted" style="font-size:0.75rem;">{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</div>
+                </div>
+                {% else %}
+                <div class="text-muted small text-center py-2">No recent activity</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    // @ts-nocheck
+    document.addEventListener('DOMContentLoaded', function() {
+        var focus = {{ dashboard_show | tojson }};
+        if (focus === 'active') {
+            var dEl = document.getElementById('dashboard-devices-section');
+            if (dEl) dEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        const powerLabels = {{ power_chart_labels | tojson }};
+        const powerKw = {{ power_chart_kw | tojson }};
+        const ctx = document.getElementById('powerChart');
+        if (ctx) {
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: powerLabels,
+                    datasets: [{
+                        label: 'Peak kW (that day)',
+                        data: powerKw,
+                        borderColor: '#4361ee',
+                        backgroundColor: 'rgba(67, 97, 238, 0.12)',
+                        borderWidth: 2,
+                        tension: 0.35,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.06)' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% set v = (system_health.status_variant or 'info') %}
+{% set label = system_health.status_label or '—' %}
+<section class="card custom-card border-0 shadow-sm mb-4 magic-reveal" style="--magic-delay:0.08s" aria-labelledby="sys-health-title">
+    <div class="card-header bg-transparent border-0 d-flex flex-wrap align-items-center justify-content-between gap-2 pt-4 px-4 pb-0">
+        <div class="d-flex align-items-center gap-2">
+            <span class="text-primary" aria-hidden="true"><i class="bi bi-heart-pulse fs-4"></i></span>
+            <h2 id="sys-health-title" class="h6 mb-0 fw-bold">System health</h2>
+        </div>
+        <span
+            class="badge rounded-pill
+                {% if v == 'success' %}text-bg-success
+                {% elif v == 'warning' %}text-bg-warning text-dark
+                {% else %}text-bg-info text-dark{% endif %}"
+            id="systemHealthStatusBadge"
+        >{{ label }}</span>
+    </div>
+    <div class="card-body px-4 pt-2 pb-4">
+        <div class="row g-3">
+            <div class="col-sm-4">
+                <div class="p-3 rounded-3 border bg-body-secondary bg-opacity-25 h-100">
+                    <div class="text-muted small text-uppercase fw-semibold" style="letter-spacing:0.04em">Total devices</div>
+                    <div class="fs-2 fw-bold lh-sm mt-1" id="systemHealthTotal">{{ system_health.total_devices }}</div>
+                </div>
+            </div>
+            <div class="col-sm-4">
+                <div class="p-3 rounded-3 border h-100">
+                    <div class="text-muted small text-uppercase fw-semibold" style="letter-spacing:0.04em">Active devices</div>
+                    <div class="fs-2 fw-bold lh-sm mt-1 text-success" id="systemHealthActive">{{ system_health.active_devices }}</div>
+                </div>
+            </div>
+            <div class="col-sm-4">
+                <div class="p-3 rounded-3 border h-100 d-flex flex-column justify-content-center">
+                    <div class="text-muted small text-uppercase fw-semibold" style="letter-spacing:0.04em">System status</div>
+                    <p class="mb-0 small mt-2" id="systemHealthDetail">{{ system_health.status_detail }}</p>
+                </div>
+            </div>
+        </div>
+        <p class="small text-muted mt-3 mb-0" id="systemHealthOnRatio">{{ system_health.active_devices }} of {{ system_health.total_devices }} on</p>
+    </div>
+</section>

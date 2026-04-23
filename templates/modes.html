@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4 magic-reveal" style="--magic-delay:0.03s">
+    <div>
+        <h2 class="fw-bold mb-1">Modes</h2>
+        <p class="text-muted mb-0">Presets that set many devices at once.</p>
+    </div>
+</div>
+
+<div class="card custom-card p-4 mb-4 magic-reveal" style="--magic-delay:0.08s">
+    <h5 class="fw-semibold mb-3"><i class="bi bi-plus-lg me-2"></i>Create a mode</h5>
+    <form method="post" action="{{ url_for('saved_modes') }}" class="row g-2 align-items-end">
+        <div class="col-md-8 col-lg-6">
+            <label class="form-label">Name</label>
+            <input type="text" name="name" class="form-control" maxlength="100" placeholder="e.g. Night Mode, Movie time, Guests" required>
+        </div>
+        <div class="col-md-4 col-lg-3">
+            <button type="submit" class="btn btn-primary w-100">Create</button>
+        </div>
+    </form>
+</div>
+
+<div class="row g-4 magic-reveal" style="--magic-delay:0.12s">
+    {% for m in modes %}
+    <div class="col-md-6 col-xl-4">
+        <div class="card custom-card mode-scene-card h-100 p-4 d-flex flex-column">
+            <div class="d-flex align-items-start justify-content-between gap-2 mb-3">
+                <div class="mode-scene-card__icon rounded-3 d-flex align-items-center justify-content-center">
+                    <i class="bi bi-layers-half fs-4"></i>
+                </div>
+                <span class="badge rounded-pill bg-light text-dark border">{{ m.assignments|length }} device{% if m.assignments|length != 1 %}s{% endif %}</span>
+            </div>
+            <h5 class="fw-bold mb-2">{{ m.name }}</h5>
+            {% if m.assignments %}
+            <ul class="small text-muted mb-3 ps-3 flex-grow-1 mode-scene-card__list">
+                {% for a in m.assignments[:6] %}
+                <li class="text-truncate">{{ a.device.name if a.device else '?' }} → <strong>{{ 'ON' if a.want_on else 'OFF' }}</strong></li>
+                {% endfor %}
+                {% if m.assignments|length > 6 %}
+                <li class="text-muted fst-italic">+ {{ m.assignments|length - 6 }} more…</li>
+                {% endif %}
+            </ul>
+            {% else %}
+            <p class="small text-muted mb-3 flex-grow-1">No devices yet — use Edit to assign.</p>
+            {% endif %}
+            <div class="d-flex flex-wrap gap-2 mt-auto">
+                <form method="post" action="{{ url_for('apply_saved_mode', mid=m.id) }}" class="d-inline">
+                    <button type="submit" class="btn btn-primary btn-sm rounded-pill px-3" {% if not m.assignments %}disabled title="Assign devices first"{% endif %}>Apply mode</button>
+                </form>
+                <a href="{{ url_for('edit_saved_mode', mid=m.id) }}" class="btn btn-outline-secondary btn-sm rounded-pill">Edit</a>
+                <form method="post" action="{{ url_for('delete_saved_mode', mid=m.id) }}" class="d-inline ms-auto" onsubmit="return confirm('Delete this mode?');">
+                    <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="col-12">
+        <div class="card custom-card text-center p-5">
+            <i class="bi bi-layers display-4 text-muted mb-3 d-block"></i>
+            <h4 class="text-muted">No custom modes yet</h4>
+            <p class="mb-0 text-muted">Create one above, then assign devices and tap Apply mode.</p>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

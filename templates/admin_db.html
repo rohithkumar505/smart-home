@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row mb-4 magic-reveal" style="--magic-delay:0.03s">
+    <div class="col-12">
+        <h2 class="text-warning"><i class="bi bi-database-fill"></i> Admin database viewer</h2>
+        <p class="text-muted mb-0">Browse stored rows by table. Admin account only. Logs show the 500 most recent entries.</p>
+    </div>
+</div>
+
+<div class="card custom-card border-0 shadow-sm overflow-hidden magic-reveal" style="--magic-delay:0.1s">
+    <div class="card-header bg-warning bg-opacity-10 border-0 px-0 pt-0">
+        <ul class="nav nav-tabs nav-fill px-2 pt-2 flex-nowrap flex-md-wrap" id="adminDbTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active fw-semibold" id="tab-users" data-bs-toggle="tab" data-bs-target="#pane-users" type="button" role="tab" aria-controls="pane-users" aria-selected="true">
+                    <i class="bi bi-people me-1"></i> Users <span class="badge rounded-pill bg-secondary ms-1">{{ users|length }}</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link fw-semibold" id="tab-rooms" data-bs-toggle="tab" data-bs-target="#pane-rooms" type="button" role="tab" aria-controls="pane-rooms" aria-selected="false">
+                    <i class="bi bi-box-seam me-1"></i> Rooms <span class="badge rounded-pill bg-secondary ms-1">{{ rooms|length }}</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link fw-semibold" id="tab-devices" data-bs-toggle="tab" data-bs-target="#pane-devices" type="button" role="tab" aria-controls="pane-devices" aria-selected="false">
+                    <i class="bi bi-hdd-network me-1"></i> Devices <span class="badge rounded-pill bg-secondary ms-1">{{ devices|length }}</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link fw-semibold" id="tab-logs" data-bs-toggle="tab" data-bs-target="#pane-logs" type="button" role="tab" aria-controls="pane-logs" aria-selected="false">
+                    <i class="bi bi-journal-text me-1"></i> Logs <span class="badge rounded-pill bg-secondary ms-1">{{ logs|length }}</span>
+                </button>
+            </li>
+        </ul>
+    </div>
+    <div class="tab-content card-body p-0" id="adminDbTabContent">
+        <div class="tab-pane fade show active" id="pane-users" role="tabpanel" aria-labelledby="tab-users" tabindex="0">
+            <div class="table-responsive" style="max-height: 70vh;">
+                <table class="table table-sm table-striped table-hover align-middle mb-0">
+                    <thead class="table-light sticky-top">
+                        <tr>
+                            <th scope="col">id</th>
+                            <th scope="col">username</th>
+                            <th scope="col">mode</th>
+                            <th scope="col">password</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for u in users %}
+                        <tr>
+                            <td class="text-muted text-nowrap">{{ u.id }}</td>
+                            <td class="fw-semibold">{{ u.username }}</td>
+                            <td>{{ u.mode }}</td>
+                            <td class="small text-muted font-monospace">(hash, {{ (u.password or '')|length }} chars)</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="4" class="text-center text-muted py-4">No users.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="pane-rooms" role="tabpanel" aria-labelledby="tab-rooms" tabindex="0">
+            <div class="table-responsive" style="max-height: 70vh;">
+                <table class="table table-sm table-striped table-hover align-middle mb-0">
+                    <thead class="table-light sticky-top">
+                        <tr>
+                            <th scope="col">id</th>
+                            <th scope="col">name</th>
+                            <th scope="col">devices</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in rooms %}
+                        <tr>
+                            <td class="text-muted text-nowrap">{{ r.id }}</td>
+                            <td class="fw-semibold">{{ r.name }}</td>
+                            <td>{{ r.devices|length }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="3" class="text-center text-muted py-4">No rooms.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="pane-devices" role="tabpanel" aria-labelledby="tab-devices" tabindex="0">
+            <div class="table-responsive" style="max-height: 70vh;">
+                <table class="table table-sm table-striped table-hover align-middle mb-0">
+                    <thead class="table-light sticky-top">
+                        <tr>
+                            <th scope="col">id</th>
+                            <th scope="col">name</th>
+                            <th scope="col">type</th>
+                            <th scope="col">room_id</th>
+                            <th scope="col">room</th>
+                            <th scope="col">status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for d in devices %}
+                        <tr>
+                            <td class="text-muted text-nowrap">{{ d.id }}</td>
+                            <td class="fw-semibold">{{ d.name }}</td>
+                            <td>{{ d.type }}</td>
+                            <td>{{ d.room_id }}</td>
+                            <td>{{ d.room.name if d.room else '—' }}</td>
+                            <td>{% if d.status %}<span class="badge bg-success">ON</span>{% else %}<span class="badge bg-secondary">OFF</span>{% endif %}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="6" class="text-center text-muted py-4">No devices.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="pane-logs" role="tabpanel" aria-labelledby="tab-logs" tabindex="0">
+            <div class="table-responsive" style="max-height: 70vh;">
+                <table class="table table-sm table-striped table-hover align-middle mb-0">
+                    <thead class="table-light sticky-top">
+                        <tr>
+                            <th scope="col" class="text-nowrap">id</th>
+                            <th scope="col" class="text-nowrap">timestamp</th>
+                            <th scope="col">user_id</th>
+                            <th scope="col">action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                        <tr>
+                            <td class="text-muted text-nowrap">{{ log.id }}</td>
+                            <td class="text-nowrap small">{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') if log.timestamp else '—' }}</td>
+                            <td class="text-muted">{{ log.user_id if log.user_id is not none else '—' }}</td>
+                            <td class="small" style="max-width: 28rem;"><span class="admin-log-action d-inline-block text-break" title="{{ log.action|e }}">{{ log.action }}</span></td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="4" class="text-center text-muted py-4">No log rows.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

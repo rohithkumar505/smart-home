@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="mb-4 magic-reveal" style="--magic-delay:0.03s">
+    <a href="{{ url_for('saved_modes') }}" class="text-decoration-none small text-muted"><i class="bi bi-arrow-left"></i> All modes</a>
+    <h2 class="fw-bold mt-2 mb-1">Edit “{{ mode.name }}”</h2>
+    <p class="text-muted mb-0">Check each device to include it in this mode, and choose whether it should be ON or OFF when you apply.</p>
+</div>
+
+<form method="post" class="card custom-card p-0 overflow-hidden magic-reveal" style="--magic-delay:0.1s">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th style="width:3rem" class="text-center">Use</th>
+                    <th>Device</th>
+                    <th>Room</th>
+                    <th style="width:10rem">When applied</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in devices %}
+                {% set row = assign_by_device.get(d.id) %}
+                <tr>
+                    <td class="text-center">
+                        <input class="form-check-input" type="checkbox" name="include_{{ d.id }}" value="1" id="inc-{{ d.id }}" {% if row %}checked{% endif %}>
+                    </td>
+                    <td><label class="form-check-label fw-semibold mb-0" for="inc-{{ d.id }}">{{ d.name }}</label></td>
+                    <td class="text-muted">{{ d.room.name }}</td>
+                    <td>
+                        <select name="target_{{ d.id }}" class="form-select form-select-sm" aria-label="Target for {{ d.name }}">
+                            <option value="on" {% if row and row.want_on %}selected{% endif %}>ON</option>
+                            <option value="off" {% if row and not row.want_on %}selected{% elif not row %}selected{% endif %}>OFF</option>
+                        </select>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if not devices %}
+    <div class="p-4 text-center text-muted">No devices in the home yet. <a href="{{ url_for('add_device') }}">Add a device</a> first.</div>
+    {% endif %}
+    <div class="p-3 border-top bg-light d-flex gap-2">
+        <button type="submit" class="btn btn-primary" {% if not devices %}disabled{% endif %}>Save assignments</button>
+        <a href="{{ url_for('saved_modes') }}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+</form>
+{% endblock %}

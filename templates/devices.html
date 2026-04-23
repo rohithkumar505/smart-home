@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3 magic-reveal" style="--magic-delay:0.03s">
+    <div>
+        <h2 class="fw-bold mb-1">All Devices</h2>
+        <p class="text-muted small mb-0">Control and monitor all your smart devices from one place.</p>
+    </div>
+    <a href="{{ url_for('add_device') }}" class="btn btn-primary rounded-pill px-4">
+        <i class="bi bi-plus-lg me-1"></i> Add device
+    </a>
+</div>
+
+<div class="row g-4 magic-reveal" style="--magic-delay:0.1s">
+    {% for device in devices %}
+    <div class="col-sm-6 col-lg-4 col-xl-3">
+        <div class="card custom-card device-card text-center p-4 h-100 {% if device.status %}active{% endif %}" id="card-{{ device.id }}">
+            <div class="device-icon">
+                {% if device.type == 'Light' %}<i class="bi bi-lightbulb-fill"></i>
+                {% elif device.type == 'Fan' %}<i class="bi bi-fan"></i>
+                {% elif device.type == 'AC' %}<i class="bi bi-snow"></i>
+                {% elif device.type == 'Lock' %}<i class="bi bi-shield-lock-fill"></i>
+                {% elif device.type == 'Heater' %}<i class="bi bi-fire"></i>
+                {% else %}<i class="bi bi-hdd-network-fill"></i>{% endif %}
+            </div>
+            <h5 class="mb-1 text-truncate fw-semibold">{{ device.name }}</h5>
+            <p class="small text-muted mb-4"><i class="bi bi-geo-alt me-1"></i>{{ device.room.name }}</p>
+            <div class="d-flex justify-content-center align-items-center mt-auto">
+                <span class="me-3 small fw-bold text-muted">OFF</span>
+                <label class="switch">
+                    <input type="checkbox" id="switch-{{ device.id }}" {% if device.status %}checked{% endif %} onchange="toggleDevice({{ device.id }})">
+                    <span class="slider round"></span>
+                </label>
+                <span class="ms-3 small fw-bold text-muted">ON</span>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="col-12">
+        <div class="card custom-card text-center p-5">
+            <h4 class="text-muted">No devices found.</h4>
+            <p class="mb-3">Add your first smart device to get started.</p>
+            <a href="{{ url_for('add_device') }}" class="btn btn-primary rounded-pill">Add device</a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

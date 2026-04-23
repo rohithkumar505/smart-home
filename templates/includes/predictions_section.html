@@ -1,0 +1,44 @@
+<section class="card custom-card border-0 shadow-sm mb-4 magic-reveal" style="--magic-delay:0.11s">
+    <div class="card-header bg-transparent border-0 d-flex flex-wrap align-items-center gap-2 pt-4 px-4">
+        <span class="fw-semibold"><i class="bi bi-magic me-1"></i> Predictive automation</span>
+        <span class="small text-muted">Based on repeated activity in your logs.</span>
+        {% if show_predictions_link %}
+        <a href="{{ url_for('predictions') }}" class="btn btn-sm btn-outline-primary rounded-pill ms-lg-auto">View all</a>
+        {% endif %}
+    </div>
+    <div class="card-body px-4 pb-4">
+        {% if prediction_cards %}
+        <div class="row g-3">
+            {% for p in prediction_cards %}
+            <div class="col-lg-6">
+                <div class="border rounded-4 p-3 h-100 d-flex flex-column gap-2">
+                    <div class="d-flex align-items-center justify-content-between gap-2">
+                        <span class="small text-muted">{{ p.room }}</span>
+                        <span class="badge {% if p.auto_enabled %}bg-success{% else %}bg-primary{% endif %}">
+                            {% if p.auto_enabled %}Auto-enabled{% else %}Suggestion{% endif %}
+                        </span>
+                    </div>
+                    <div class="fw-semibold">
+                        {{ p.suggestion }}
+                    </div>
+                    <div class="small text-muted">
+                        Confidence {{ p.confidence_pct }}% · seen on {{ p.sample_days }} day{% if p.sample_days != 1 %}s{% endif %}.
+                    </div>
+                    {% if not p.auto_enabled %}
+                    <form method="post" action="{{ url_for('enable_prediction', pid=p.id) }}" class="mt-1">
+                        <button type="submit" class="btn btn-sm btn-outline-success rounded-pill">Auto-enable this prediction</button>
+                    </form>
+                    {% else %}
+                    <div class="small text-success fw-semibold mt-1"><i class="bi bi-check-circle me-1"></i> Schedule automation is active.</div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-muted small">
+            No strong daily pattern detected yet. Keep using devices at regular times and suggestions will appear here.
+        </div>
+        {% endif %}
+    </div>
+</section>

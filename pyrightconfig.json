@@ -1,0 +1,7 @@
+{
+  "include": ["app.py", "init_db.py", "voice_commands.py"],
+  "exclude": ["venv"],
+  "venvPath": ".",
+  "venv": "venv",
+  "pythonVersion": "3.9"
+}

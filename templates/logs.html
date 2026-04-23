@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row mb-4 align-items-end magic-reveal" style="--magic-delay:0.03s">
+    <div class="col-lg-6 mb-3 mb-lg-0">
+        <h2 class="fw-bold mb-1">Activity logs</h2>
+        <p class="text-muted mb-0">Device events, voice commands, and home changes — search and filter below.</p>
+    </div>
+    <div class="col-lg-6">
+        <form method="get" action="{{ url_for('view_logs') }}" class="log-filters row g-2 align-items-end">
+            <div class="col-md-6">
+                <label for="log-search" class="form-label small text-muted mb-1">Search</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-transparent border-end-0"><i class="bi bi-search text-muted"></i></span>
+                    <input type="search" id="log-search" name="q" class="form-control border-start-0" placeholder="Text in any column…" value="{{ search_q }}" autocomplete="off">
+                </div>
+            </div>
+            <div class="col-md-4">
+                <label for="log-state" class="form-label small text-muted mb-1">Filter</label>
+                <select id="log-state" name="state" class="form-select">
+                    <option value="all" {% if state_filter == 'all' %}selected{% endif %}>All actions</option>
+                    <option value="on" {% if state_filter == 'on' %}selected{% endif %}>ON only (green)</option>
+                    <option value="off" {% if state_filter == 'off' %}selected{% endif %}>OFF only (red)</option>
+                </select>
+            </div>
+            <div class="col-md-2 d-grid">
+                <button type="submit" class="btn btn-primary">Apply</button>
+            </div>
+        </form>
+        {% if search_q or state_filter != 'all' %}
+        <div class="mt-2">
+            <a href="{{ url_for('view_logs') }}" class="small text-decoration-none">Clear filters</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card custom-card border-0 shadow-sm overflow-hidden magic-reveal" style="--magic-delay:0.1s">
+    <div class="card-body p-0">
+        {% if rows %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0 log-page-table">
+                <thead class="table-light">
+                    <tr>
+                        <th scope="col" class="ps-4">Device</th>
+                        <th scope="col">Action</th>
+                        <th scope="col" class="text-end pe-4" style="white-space:nowrap;">Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                    {% set log = row.log %}
+                    <tr class="log-tr log-tr--{{ row.state }}">
+                        <td class="ps-4 fw-semibold">{{ row.device }}</td>
+                        <td>
+                            {% if row.state == 'on' %}
+                            <span class="log-pill log-pill--on">ON</span>
+                            {% elif row.state == 'off' %}
+                            <span class="log-pill log-pill--off">OFF</span>
+                            {% else %}
+                            <span class="log-pill log-pill--neutral">—</span>
+                            {% endif %}
+                            <span class="log-action-text">{{ log.action }}</span>
+                        </td>
+                        <td class="text-muted small text-end pe-4" style="white-space:nowrap;">{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="px-4 py-2 border-top small text-muted">{{ rows|length }} entr{{ 'y' if rows|length == 1 else 'ies' }} shown</div>
+        {% else %}
+        <div class="text-center py-5 px-3">
+            <i class="bi bi-funnel fs-1 text-muted mb-3 d-block"></i>
+            {% if search_q or state_filter != 'all' %}
+            <h5 class="text-muted">No logs match your filters</h5>
+            <p class="mb-3">Try another search or set filter to “All actions”.</p>
+            <a href="{{ url_for('view_logs') }}" class="btn btn-outline-primary rounded-pill">Reset</a>
+            {% else %}
+            <i class="bi bi-journal-x fs-1 text-muted mb-3 d-block"></i>
+            <h5 class="text-muted">No logs recorded yet</h5>
+            <p class="mb-0">Control devices or run commands — events will appear here.</p>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

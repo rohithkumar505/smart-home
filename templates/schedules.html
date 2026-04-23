@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="magic-reveal" style="--magic-delay:0.03s">
+            <h2 class="fw-bold mb-2">Schedules</h2>
+            <p class="text-muted mb-4">Each row runs once per day at the given time using the server’s local clock. A background task checks every 30 seconds. Suggested times from your habits appear on <a href="{{ url_for('predictions') }}">Predictions</a>.</p>
+        </div>
+
+        <div class="card custom-card p-4 mb-4 magic-reveal" style="--magic-delay:0.09s">
+            <h5 class="fw-semibold mb-3"><i class="bi bi-plus-circle me-2"></i>New schedule</h5>
+            {% if devices %}
+            <form method="post" action="{{ url_for('schedules') }}" class="row g-3 align-items-end">
+                <div class="col-md-5">
+                    <label class="form-label">Device</label>
+                    <select name="device_id" class="form-select" required>
+                        {% for d in devices %}
+                        <option value="{{ d.id }}">{{ d.name }} — {{ d.room.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Action</label>
+                    <select name="action" class="form-select" required>
+                        <option value="on">Turn ON</option>
+                        <option value="off">Turn OFF</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Time</label>
+                    <input type="time" name="time" class="form-control" required>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-check-lg"></i> Save</button>
+                </div>
+            </form>
+            {% else %}
+            <p class="text-muted mb-2">Add a device first, then you can schedule it.</p>
+            <a href="{{ url_for('add_device') }}" class="btn btn-outline-primary btn-sm">Add device</a>
+            {% endif %}
+        </div>
+
+        <div class="card custom-card p-0 overflow-hidden magic-reveal" style="--magic-delay:0.14s">
+            <div class="px-4 py-3 border-bottom bg-light">
+                <h5 class="fw-semibold mb-0">Saved schedules</h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Time</th>
+                            <th>Device</th>
+                            <th>Room</th>
+                            <th>Action</th>
+                            <th>Status</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in schedules %}
+                        <tr class="{% if not s.active %}text-muted{% endif %}">
+                            <td class="fw-semibold">{{ s.time }}</td>
+                            <td>{{ s.device.name if s.device else '—' }}</td>
+                            <td>{{ s.device.room.name if s.device and s.device.room else '—' }}</td>
+                            <td><span class="badge bg-{{ 'success' if s.action else 'secondary' }}">{{ 'ON' if s.action else 'OFF' }}</span></td>
+                            <td>{{ 'Active' if s.active else 'Paused' }}</td>
+                            <td class="text-end">
+                                <form method="post" action="{{ url_for('toggle_schedule', sid=s.id) }}" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary" title="Pause or resume">{{ 'Pause' if s.active else 'Resume' }}</button>
+                                </form>
+                                <form method="post" action="{{ url_for('delete_schedule', sid=s.id) }}" class="d-inline ms-1" onsubmit="return confirm('Remove this schedule?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-5">No schedules yet.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

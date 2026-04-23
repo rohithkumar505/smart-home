@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 magic-reveal" style="--magic-delay:0.03s">
+    <div>
+        <h2 class="fw-bold mb-1">Manage Rooms</h2>
+        <p class="text-muted small mb-0">Organize your devices by room. Tap a room card to view its devices.</p>
+    </div>
+    <button class="btn btn-primary rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#addRoomModal">
+        <i class="bi bi-plus-lg me-1"></i> Add Room
+    </button>
+</div>
+
+<div class="row g-4 magic-reveal" style="--magic-delay:0.1s">
+    {% for room in rooms %}
+    <div class="col-sm-6 col-lg-4 col-xl-3">
+        <div class="card custom-card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <h5 class="card-title fw-bold">{{ room.name }}</h5>
+                    <div class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill">
+                        {{ room.devices|length }} Devices
+                    </div>
+                </div>
+                <div class="text-muted small mb-3">
+                    Active Devices: {{ room.devices|selectattr('status', 'equalto', True)|list|length }}
+                </div>
+                
+                {% if room.devices %}
+                <div class="d-flex flex-wrap gap-2">
+                    {% for device in room.devices[:3] %}
+                    <span class="badge {% if device.status %}bg-success{% else %}bg-secondary{% endif %}">
+                        {{ device.name }}
+                    </span>
+                    {% endfor %}
+                    {% if room.devices|length > 3 %}
+                    <span class="badge bg-light text-dark">+{{ room.devices|length - 3 }} more</span>
+                    {% endif %}
+                </div>
+                {% else %}
+                <p class="text-muted small fst-italic">No devices in this room.</p>
+                {% endif %}
+            </div>
+            <div class="card-footer bg-transparent border-top-0 pt-0">
+                <a href="{{ url_for('devices') }}?room={{ room.id }}" class="btn btn-sm btn-outline-primary w-100">View Devices</a>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="col-12">
+        <div class="card custom-card text-center p-5">
+            <h4 class="text-muted">No rooms created yet.</h4>
+            <p>Start organizing your home by adding a room.</p>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Add Room Modal -->
+<div class="modal fade" id="addRoomModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Room</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('rooms') }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Room Name</label>
+                        <input type="text" name="name" class="form-control" placeholder="e.g. Living Room" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Room</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="magic-reveal" style="--magic-delay:0.03s">
+            <h2 class="fw-bold mb-2">Settings</h2>
+            <p class="text-muted mb-4">Manage your home, devices, and preferences.</p>
+        </div>
+        <div class="row g-3 magic-reveal" style="--magic-delay:0.1s">
+            <div class="col-md-6">
+                <a href="{{ url_for('rooms') }}" class="text-decoration-none">
+                    <div class="card custom-card h-100 settings-tile p-4">
+                        <i class="bi bi-box-seam display-6 text-primary mb-3"></i>
+                        <h5 class="fw-semibold text-body">Rooms</h5>
+                        <p class="text-muted small mb-0">Add or rename rooms in your home.</p>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-6">
+                <a href="{{ url_for('add_device') }}" class="text-decoration-none">
+                    <div class="card custom-card h-100 settings-tile p-4">
+                        <i class="bi bi-plugin display-6 text-primary mb-3"></i>
+                        <h5 class="fw-semibold text-body">Add device</h5>
+                        <p class="text-muted small mb-0">Register lights, locks, climate, and more.</p>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-6">
+                <a href="{{ url_for('schedules') }}" class="text-decoration-none">
+                    <div class="card custom-card h-100 settings-tile p-4">
+                        <i class="bi bi-alarm display-6 text-primary mb-3"></i>
+                        <h5 class="fw-semibold text-body">Schedules</h5>
+                        <p class="text-muted small mb-0">Automate devices at a daily time (server clock).</p>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-6">
+                <a href="{{ url_for('saved_modes') }}" class="text-decoration-none">
+                    <div class="card custom-card h-100 settings-tile p-4">
+                        <i class="bi bi-layers-half display-6 text-primary mb-3"></i>
+                        <h5 class="fw-semibold text-body">Modes</h5>
+                        <p class="text-muted small mb-0">Create presets and apply many devices at once.</p>
+                    </div>
+                </a>
+            </div>
+            <div class="col-12 text-center">
+                <a href="{{ url_for('devices') }}" class="small text-muted">View all devices</a>
+            </div>
+            <div class="col-12">
+                <div class="card custom-card p-4 mb-3">
+                    <h5 class="fw-semibold mb-2"><i class="bi bi-cash-coin me-2"></i>Energy cost</h5>
+                    <p class="text-muted small mb-3">Enter your utility <strong>price per kWh</strong> to estimate costs on the dashboard. Use your local currency; numbers are shown in the same unit (e.g. <code>0.12</code> for 12 cents per kWh).</p>
+                    <form method="post" action="{{ url_for('settings') }}" class="row g-2 align-items-end">
+                        <div class="col-md-5 col-lg-4">
+                            <label for="energy_cost_per_kwh" class="form-label mb-0 small">Cost per kWh</label>
+                            <input type="number" step="0.0001" min="0" name="energy_cost_per_kwh" id="energy_cost_per_kwh" class="form-control" placeholder="e.g. 0.12" value="{% if energy_rate is not none %}{{ energy_rate }}{% endif %}">
+                        </div>
+                        <div class="col-md-auto d-flex flex-wrap gap-2">
+                            <button type="submit" class="btn btn-primary">Save</button>
+                            {% if energy_rate is not none %}
+                            <button type="submit" class="btn btn-outline-secondary" name="clear_rate" value="1" formnovalidate>Clear</button>
+                            {% endif %}
+                        </div>
+                    </form>
+                    <p class="text-muted small mb-0 mt-2">Costs use estimated kWh from stored load snapshots (nominal power when devices are on). Clear the field to hide money estimates on the dashboard.</p>
+                </div>
+            </div>
+            <div class="col-12">
+                <div class="card custom-card p-4">
+                    <h5 class="fw-semibold mb-3"><i class="bi bi-person-badge me-2"></i>Account</h5>
+                    <p class="mb-1"><span class="text-muted">Signed in as</span> <strong>{{ current_user.username }}</strong></p>
+                    <p class="mb-0 text-muted small">Bulk device presets are on the <a href="{{ url_for('saved_modes') }}">Modes</a> page. Use the moon icon in the navbar to switch light or dark appearance.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

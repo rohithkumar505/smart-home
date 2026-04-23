@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="add-dev-page">
+    <div class="add-dev-back mb-4 magic-reveal" style="--magic-delay:0.02s">
+        <a href="{{ url_for('devices') }}" class="add-dev-back__link"><i class="bi bi-arrow-left"></i> All devices</a>
+    </div>
+
+    {% if not rooms %}
+    <div class="add-dev-empty rounded-4 p-5 text-center magic-reveal" style="--magic-delay:0.06s">
+        <div class="add-dev-empty__orbit mb-4" aria-hidden="true">
+            <span class="add-dev-empty__dot"></span>
+            <span class="add-dev-empty__dot add-dev-empty__dot--2"></span>
+            <span class="add-dev-empty__icon"><i class="bi bi-house-add"></i></span>
+        </div>
+        <h1 class="h3 fw-bold mb-2">Rooms come first</h1>
+        <p class="text-muted mb-4 mx-auto" style="max-width: 26rem">Every device lives in a room. Create a space, then come back here to register hardware.</p>
+        <a href="{{ url_for('rooms') }}" class="btn btn-primary rounded-pill px-4">Create a room</a>
+    </div>
+    {% else %}
+
+    <header class="add-dev-header mb-4 mb-lg-5 magic-reveal" style="--magic-delay:0.05s">
+        <p class="add-dev-kicker mb-2">Onboarding</p>
+        <h1 class="add-dev-title fw-bold mb-2">Bring hardware online</h1>
+        <p class="add-dev-lead text-muted mb-0">Name it, pick its role, assign a room — then drive it from your dashboard.</p>
+    </header>
+
+    <div class="row g-4 g-lg-5 align-items-stretch magic-reveal" style="--magic-delay:0.12s">
+        <div class="col-lg-5 d-none d-lg-block">
+            <aside class="add-dev-aside h-100 rounded-4 p-4 p-xl-5 position-relative overflow-hidden">
+                <div class="add-dev-aside__grid" aria-hidden="true"></div>
+                <div class="add-dev-aside__glow add-dev-aside__glow--a"></div>
+                <div class="add-dev-aside__glow add-dev-aside__glow--b"></div>
+                <div class="position-relative">
+                    <span class="add-dev-aside__label">Signal path</span>
+                    <ul class="add-dev-steps list-unstyled mt-4 mb-0">
+                        <li class="add-dev-steps__item add-dev-steps__item--done">
+                            <span class="add-dev-steps__num">1</span>
+                            <div>
+                                <strong>Identify</strong>
+                                <p class="small text-white-50 mb-0">A clear name shows up on cards and in logs.</p>
+                            </div>
+                        </li>
+                        <li class="add-dev-steps__item add-dev-steps__item--done">
+                            <span class="add-dev-steps__num">2</span>
+                            <div>
+                                <strong>Classify</strong>
+                                <p class="small text-white-50 mb-0">Type drives icons, automations, and voice shortcuts.</p>
+                            </div>
+                        </li>
+                        <li class="add-dev-steps__item">
+                            <span class="add-dev-steps__num">3</span>
+                            <div>
+                                <strong>Place</strong>
+                                <p class="small text-white-50 mb-0">Room context keeps the home map honest.</p>
+                            </div>
+                        </li>
+                    </ul>
+                    <div class="add-dev-aside__footer mt-5 pt-4 border-top border-white border-opacity-10">
+                        <i class="bi bi-shield-check text-info me-2"></i>
+                        <span class="small text-white-50">Stored locally in your SQLite database with the rest of your home.</span>
+                    </div>
+                </div>
+            </aside>
+        </div>
+
+        <div class="col-lg-7">
+            <form method="POST" action="{{ url_for('add_device') }}" class="add-dev-form rounded-4 p-4 p-md-5" id="addDeviceForm">
+                <div class="mb-4 pb-4 border-bottom border-secondary border-opacity-25">
+                    <label class="add-dev-field-label" for="dev-name">Device name</label>
+                    <input type="text" id="dev-name" name="name" class="form-control form-control-lg add-dev-input" placeholder="e.g. Hallway pendant" required maxlength="100" autocomplete="off">
+                    <p class="form-text small text-muted mb-0 mt-2">Short, human labels work best for voice commands.</p>
+                </div>
+
+                <fieldset class="mb-4 pb-4 border-bottom border-secondary border-opacity-25">
+                    <legend class="add-dev-field-label mb-3">Device type</legend>
+                    <div class="row g-3 add-dev-type-grid">
+                        {% set types = [
+                            ('Light', 'bi-lightbulb-fill', 'Lighting'),
+                            ('Fan', 'bi-fan', 'Airflow'),
+                            ('AC', 'bi-snow', 'Cooling'),
+                            ('Heater', 'bi-fire', 'Warmth'),
+                            ('Lock', 'bi-shield-lock-fill', 'Access'),
+                            ('Other', 'bi-three-dots', 'Anything else')
+                        ] %}
+                        {% for value, icon, hint in types %}
+                        <div class="col-6 col-md-4">
+                            <input class="add-dev-type-input visually-hidden" type="radio" name="type" id="type-{{ value }}" value="{{ value }}" {% if loop.first %}required{% endif %} {{ 'checked' if loop.first else '' }}>
+                            <label class="add-dev-type-tile h-100" for="type-{{ value }}">
+                                <span class="add-dev-type-tile__icon"><i class="bi {{ icon }}"></i></span>
+                                <span class="add-dev-type-tile__name">{{ value }}</span>
+                                <span class="add-dev-type-tile__hint">{{ hint }}</span>
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </fieldset>
+
+                <div class="mb-4">
+                    <label class="add-dev-field-label" for="dev-room">Room</label>
+                    <select id="dev-room" name="room_id" class="form-select form-select-lg add-dev-select" required>
+                        <option value="" disabled selected>Choose a room…</option>
+                        {% for room in rooms %}
+                        <option value="{{ room.id }}">{{ room.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="d-flex flex-wrap gap-3 align-items-center pt-2">
+                    <button type="submit" class="btn btn-lg add-dev-submit px-5">
+                        <span>Add to my home</span>
+                        <i class="bi bi-arrow-right-short fs-4 ms-1"></i>
+                    </button>
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-lg btn-link text-muted text-decoration-none">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

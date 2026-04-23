@@ -1,0 +1,39 @@
+<section class="card custom-card border-0 shadow-sm mb-4 magic-reveal" style="--magic-delay:0.095s" aria-labelledby="smart-rec-title">
+    <div class="card-header bg-transparent border-0 d-flex flex-wrap align-items-center gap-2 pt-4 px-4">
+        <span class="fw-semibold" id="smart-rec-title"><i class="bi bi-robot me-1"></i> Smart recommendations</span>
+        <span class="small text-muted">From live device state, time of day, and snapshot energy patterns.</span>
+    </div>
+    <div class="card-body px-4 pb-4 pt-0" id="smart-recommendations-container">
+        {% if smart_recommendations %}
+        <ul class="list-group list-group-flush rounded-3 border small">
+            {% for r in smart_recommendations %}
+            {% set v = r.get('variant', 'info') %}
+            <li class="list-group-item d-flex gap-3 align-items-start border-0
+                {% if v == 'warning' %} sm-rec--warn bg-warning bg-opacity-10
+                {% elif v == 'info' %} sm-rec--info
+                {% elif v == 'success' %} sm-rec--ok border-success border-opacity-25
+                {% else %} sm-rec--neutral bg-light
+                {% endif %}
+                {{ 'rounded-top' if loop.first else '' }} {{ 'rounded-bottom' if loop.last else '' }}">
+                <div class="flex-shrink-0 mt-0 pt-0">
+                    {% if r.get('icon') == 'lightning-charge' %}<i class="bi bi-lightning-charge-fill text-warning fs-4"></i>
+                    {% elif r.get('icon') == 'graph-up-arrow' %}<i class="bi bi-graph-up-arrow text-danger fs-4"></i>
+                    {% elif r.get('icon') == 'power' %}<i class="bi bi-power text-primary fs-4"></i>
+                    {% elif r.get('icon') == 'moon' %}<i class="bi bi-moon-stars text-info fs-4"></i>
+                    {% elif r.get('icon') == 'snow' %}<i class="bi bi-snow text-info fs-4"></i>
+                    {% elif r.get('icon') == 'check2-circle' %}<i class="bi bi-check2-circle text-success fs-4"></i>
+                    {% elif r.get('icon') == 'heart' %}<i class="bi bi-heart text-success fs-4"></i>
+                    {% else %}<i class="bi bi-lightbulb text-secondary fs-4"></i>{% endif %}
+                </div>
+                <div>
+                    <div class="fw-semibold">{{ r.get('title', 'Tip') }}</div>
+                    <div class="text-muted mt-1" style="line-height:1.4;">{{ r.get('body', '') }}</div>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted small mb-0">Add devices to receive recommendations.</p>
+        {% endif %}
+    </div>
+</section>
