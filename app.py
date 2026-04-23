@@ -28,10 +28,22 @@ from flask import (
 from fpdf import FPDF
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
-from sqlalchemy import func, inspect, text
+import sqlite3
+from sqlalchemy import func, inspect, text, event
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import joinedload
 from werkzeug.security import generate_password_hash, check_password_hash
 from voice_commands import parse_voice_intent
+
+@event.listens_for(Engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    if type(dbapi_connection) is sqlite3.Connection:
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.execute("PRAGMA cache_size=-64000")
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
 
 # Nominal draw (watts) per device type when ON — used to estimate load from real DB on/off state.
 NOMINAL_WATTS_BY_TYPE = {
@@ -47,10 +59,28 @@ ALLOWED_DEVICE_TYPES = frozenset(NOMINAL_WATTS_BY_TYPE.keys())
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY') or 'dev-secret-change-with-FLASK_SECRET_KEY'
-# Use absolute path so the DB persists on Render's mounted disk
-_db_path = os.path.join(app.instance_path, 'database.db')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL') or f'sqlite:///{_db_path}'
+
+# Production: set DATABASE_URL (Render/Railway Postgres). Local: default SQLite file.
+_db_url = (os.environ.get('DATABASE_URL') or '').strip()
+if not _db_url:
+    _db_url = 'sqlite:///database.db'
+elif _db_url.startswith('postgres://'):
+    # SQLAlchemy / psycopg2 expect postgresql://
+    _db_url = 'postgresql://' + _db_url[len('postgres://') :]
+app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# SQLite-only connect tuning (Postgres ignores these; do not pass them to psycopg2)
+if _db_url.startswith('sqlite'):
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'connect_args': {
+            'check_same_thread': False,
+            'timeout': 15,
+        }
+    }
+else:
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {}
+
 # Server-side signed session (Flask) + Flask-Login user id in session
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
 app.config['SESSION_COOKIE_HTTPONLY'] = True
@@ -60,6 +90,11 @@ app.config['SESSION_REFRESH_EACH_REQUEST'] = True
 app.config['REMEMBER_COOKIE_DURATION'] = timedelta(days=30)
 app.config['REMEMBER_COOKIE_HTTPONLY'] = True
 app.config['REMEMBER_COOKIE_SAMESITE'] = 'Lax'
+
+# HTTPS on common hosts (cookies only sent over TLS)
+if os.environ.get('RENDER') or os.environ.get('FLASK_ENV', '').lower() == 'production':
+    app.config['SESSION_COOKIE_SECURE'] = True
+    app.config['REMEMBER_COOKIE_SECURE'] = True
 
 db = SQLAlchemy(app)
 login_manager = LoginManager()
@@ -2714,8 +2749,5 @@ def unhandled_exception(e):
 
 if __name__ == '__main__':
     with app.app_context():
-        os.makedirs(app.instance_path, exist_ok=True)
         init_database()
-    _port = int(os.environ.get('PORT', 5005))
-    _debug = os.environ.get('FLASK_ENV', 'development') != 'production'
-    app.run(debug=_debug, host='0.0.0.0', port=_port)
+    app.run(host='0.0.0.0', debug=True, port=5005)

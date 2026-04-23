@@ -666,9 +666,15 @@ function initAiChat() {
 
     if (micBtn) {
         if (!SpeechRecognition) {
-            // Browser doesn't support it
+            // Browser doesn't support it (or blocked due to insecure HTTP context)
             micBtn.classList.add('ai-mic--unsupported');
-            micBtn.title = 'Voice input not supported in this browser (try Chrome)';
+            micBtn.title = 'Voice input not supported or requires HTTPS';
+            micBtn.addEventListener('click', function() {
+                var reason = window.isSecureContext === false
+                    ? '🔒 **Voice requires HTTPS.** Since you are accessing via a local IP address, the browser disabled the microphone. You can still type commands!'
+                    : '🎙️ Voice recognition is not supported in this browser. Try Chrome or Safari.';
+                appendBubble(reason, 'bot');
+            });
         } else {
             recognition = new SpeechRecognition();
             recognition.lang = 'en-US';

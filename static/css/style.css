@@ -71,7 +71,7 @@ body.app-body {
         radial-gradient(900px 700px at 100% 0%, rgba(6, 182, 212, 0.2), transparent 50%),
         radial-gradient(700px 500px at 50% 100%, rgba(236, 72, 153, 0.12), transparent 45%),
         linear-gradient(165deg, #eef2ff 0%, #f8fafc 38%, #ecfeff 100%);
-    pointer-events: none;
+    pointer-events: none !important;
 }
 
 html[data-theme="dark"] .app-bg-mesh {
@@ -90,7 +90,7 @@ html[data-theme="dark"] .app-bg-mesh {
     background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.45) 50%, transparent 60%);
     background-size: 200% 100%;
     animation: auroraDrift 18s ease-in-out infinite;
-    pointer-events: none;
+    pointer-events: none !important;
 }
 
 html[data-theme="dark"] .app-bg-aurora {
@@ -506,7 +506,7 @@ html[data-theme="dark"] .dashboard-hero {
     border-radius: 50%;
     filter: blur(48px);
     opacity: 0.45;
-    pointer-events: none;
+    pointer-events: none !important;
 }
 .dashboard-hero__orb--1 {
     width: 200px;
@@ -683,7 +683,7 @@ html[data-theme='dark'] .device-card.device-status--pulse {
     background: linear-gradient(125deg, transparent 40%, rgba(255, 255, 255, 0.07) 50%, transparent 60%);
     transform: translateX(-100%);
     transition: transform 0.6s ease;
-    pointer-events: none;
+    pointer-events: none !important;
 }
 .device-dash-card:hover .device-dash-card__shine {
     transform: translateX(100%);
@@ -742,7 +742,7 @@ html[data-theme='dark'] .device-dash-dnd-handle {
     inset: -0.2rem;
     border-radius: 1.1rem;
     border: 2px dashed #4361ee;
-    pointer-events: none;
+    pointer-events: none !important;
     z-index: 1;
 }
 html[data-theme='dark'] #dashboardDeviceGrid .dashboard-device-col--over::before {
@@ -979,7 +979,7 @@ html[data-theme="dark"] .add-dev-empty {
     position: absolute;
     border-radius: 50%;
     filter: blur(40px);
-    pointer-events: none;
+    pointer-events: none !important;
 }
 .add-dev-aside__glow--a {
     width: 140px;
@@ -1421,7 +1421,7 @@ html[data-theme="dark"] .hero-3d-inner {
     position: absolute;
     border-radius: 50%;
     border: 1.5px solid;
-    pointer-events: none;
+    pointer-events: none !important;
     opacity: .35;
     transform-style: preserve-3d;
 }
@@ -1458,7 +1458,7 @@ html[data-theme="dark"] .hero-3d-inner {
 .hero-particle {
     position: absolute;
     border-radius: 50%;
-    pointer-events: none;
+    pointer-events: none !important;
 }
 .hero-particle--a {
     width: 10px; height: 10px;
@@ -1514,7 +1514,7 @@ html[data-theme="dark"] .hero-3d-inner {
         linear-gradient(90deg, rgba(99,102,241,.07) 1px, transparent 1px);
     background-size: 38px 38px;
     border-radius: inherit;
-    pointer-events: none;
+    pointer-events: none !important;
     opacity: .55;
 }
 
@@ -1523,7 +1523,7 @@ html[data-theme="dark"] .hero-3d-inner {
     position: absolute;
     border-radius: 50%;
     filter: blur(60px);
-    pointer-events: none;
+    pointer-events: none !important;
 }
 .hero-blob--1 {
     width: 260px; height: 260px;
@@ -2060,4 +2060,380 @@ html[data-theme='dark'] .ai-mic-btn:hover {
 @keyframes speakingPulse {
     from { box-shadow: 0 0 0 0 rgba(79,70,229,0.5); }
     to   { box-shadow: 0 0 0 8px rgba(79,70,229,0); }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE — TABLET & MOBILE  (mobile-first additions)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Tablet: ≤ 991px ─────────────────────────────────────────── */
+@media (max-width: 991.98px) {
+
+    /* Hero — stack hero text above the AI chat */
+    .hero-3d-inner .row {
+        flex-direction: column;
+    }
+    .hero-3d-inner .col-lg-5,
+    .hero-3d-inner .col-lg-7 {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    /* AI Chat panel — full width, taller on tablet */
+    .ai-chat-panel {
+        max-height: 420px;
+        border-radius: 18px;
+    }
+
+    /* Stat tiles — 2 per row */
+    #dashboard-quick-stats .col-6 {
+        flex: 0 0 50%;
+        max-width: 50%;
+    }
+
+    /* Device cards grid — 2 columns */
+    #dashboardDeviceGrid .dashboard-device-col {
+        flex: 0 0 50%;
+        max-width: 50%;
+    }
+
+    /* Sidebar / main layout tweaks */
+    .page-content {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+
+    /* Logs table — hide less important columns */
+    .logs-table th:nth-child(4),
+    .logs-table td:nth-child(4) {
+        display: none;
+    }
+}
+
+/* ── Mobile: ≤ 767px ─────────────────────────────────────────── */
+@media (max-width: 767.98px) {
+
+    /* Tighten global padding */
+    .container-fluid {
+        padding-left: 0.85rem !important;
+        padding-right: 0.85rem !important;
+    }
+
+    /* Navbar — compact */
+    .app-navbar.custom-navbar {
+        padding: 0.45rem 0.85rem;
+        border-radius: 0 0 18px 18px;
+    }
+    .app-brand {
+        font-size: 1.1rem;
+    }
+
+    /* Hero scene — compact height, disable 3D tilt on touch */
+    .hero-3d-scene {
+        border-radius: 20px;
+        perspective: none;
+    }
+    .hero-3d-inner {
+        padding: 1.25rem 1rem !important;
+        transform: none !important; /* disable mouse-tilt on mobile */
+    }
+    .hero-3d-inner h1.display-6 {
+        font-size: 1.6rem;
+    }
+
+    /* AI Chat panel — compact, full width */
+    .ai-chat-panel {
+        max-height: 360px;
+        border-radius: 16px;
+        margin-top: 1rem;
+    }
+    .ai-chat-header {
+        padding: 0.6rem 0.85rem;
+    }
+    .ai-chat-hint {
+        display: none; /* hide hint text on small screens */
+    }
+    .ai-chat-messages {
+        padding: 0.6rem 0.75rem;
+    }
+    .ai-chat-suggestions {
+        padding: 0.35rem 0.75rem 0.4rem;
+        gap: 0.25rem;
+    }
+    .ai-sugg-btn {
+        font-size: 0.68rem;
+        padding: 0.2rem 0.5rem;
+    }
+    .ai-chat-input-row {
+        padding: 0.45rem 0.55rem;
+    }
+    .ai-chat-input {
+        font-size: 0.8rem;
+        padding: 0.4rem 0.75rem;
+    }
+    .ai-bubble__text {
+        font-size: 0.79rem;
+    }
+
+    /* Stat tiles — 2 per row on mobile */
+    #dashboard-quick-stats > [class*="col-"] {
+        flex: 0 0 50%;
+        max-width: 50%;
+    }
+    .stat-tile {
+        padding: 0.85rem 0.9rem;
+        gap: 0.65rem;
+    }
+    .stat-tile__icon {
+        width: 40px;
+        height: 40px;
+        font-size: 1.15rem;
+    }
+    .stat-tile__value {
+        font-size: 1.35rem;
+    }
+
+    /* Device cards — 1 column on mobile */
+    #dashboardDeviceGrid {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+    }
+    #dashboardDeviceGrid .dashboard-device-col {
+        flex: unset !important;
+        max-width: unset !important;
+        width: unset !important;
+        padding: 0 !important;
+    }
+    .device-dash-card__body {
+        padding: 1rem 1rem 0.85rem;
+    }
+    .device-dash-card__icon {
+        font-size: 1.85rem;
+    }
+    .device-dash-card__title {
+        font-size: 0.95rem;
+    }
+
+    /* Room cards */
+    .device-card {
+        padding: 0.85rem;
+    }
+
+    /* Page headers */
+    .page-header h1,
+    .page-header .h1 {
+        font-size: 1.5rem;
+    }
+
+    /* Analytics charts — full width */
+    .chart-card {
+        margin-bottom: 1rem;
+    }
+
+    /* Floating theme toggle — smaller */
+    .btn-theme-toggle--floating {
+        width: 2.75rem;
+        height: 2.75rem;
+        font-size: 1rem;
+        bottom: 1rem;
+        right: 1rem;
+    }
+
+    /* Logs */
+    .log-item {
+        padding: 0.75rem 0.85rem;
+        font-size: 0.85rem;
+    }
+
+    /* Forms on mobile */
+    .form-control,
+    .form-select {
+        font-size: 0.9rem;
+        padding: 0.65rem 0.9rem;
+    }
+
+    /* Modal dialogs */
+    .modal-dialog {
+        margin: 0.5rem;
+    }
+    .modal-content {
+        border-radius: 18px;
+    }
+
+    /* Smart recommendations */
+    #smart-recommendations-container .list-group-item {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    #smart-recommendations-container .flex-shrink-0 {
+        align-self: flex-start;
+    }
+
+    /* Toast stack */
+    #globalToastStack {
+        width: calc(100vw - 2rem) !important;
+        right: 1rem !important;
+        left: 1rem !important;
+        bottom: 4.5rem !important;
+        max-width: none !important;
+        pointer-events: none !important;
+    }
+    #globalToastStack .toast {
+        pointer-events: auto !important;
+    }
+}
+
+/* ── Small mobile: ≤ 480px ───────────────────────────────────── */
+@media (max-width: 479.98px) {
+
+    /* Device cards — single column on very small screens */
+    #dashboardDeviceGrid {
+        grid-template-columns: 1fr;
+    }
+
+    /* Stat tiles — full width */
+    #dashboard-quick-stats > [class*="col-"] {
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+
+    /* Hero */
+    .hero-3d-inner h1.display-6 {
+        font-size: 1.35rem;
+    }
+
+    /* AI chat suggestion chips — scroll horizontally */
+    .ai-chat-suggestions {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-bottom: 0.3rem;
+        -webkit-overflow-scrolling: touch;
+    }
+    .ai-chat-suggestions::-webkit-scrollbar {
+        height: 3px;
+    }
+    .ai-sugg-btn {
+        flex-shrink: 0;
+    }
+
+    /* Navbar brand */
+    .app-brand__mark {
+        width: 1.8rem;
+        height: 1.8rem;
+        font-size: 0.9rem;
+        border-radius: 10px;
+    }
+    .app-brand {
+        font-size: 1rem;
+    }
+}
+
+/* ── Desktop large: ≥ 1400px ─────────────────────────────────── */
+@media (min-width: 1400px) {
+    .ai-chat-panel {
+        max-height: 420px;
+    }
+    .hero-3d-inner {
+        padding: 2.5rem 2rem !important;
+    }
+    #dashboardDeviceGrid {
+        gap: 1.25rem !important;
+    }
+}
+
+/* ── Touch devices: disable hover effects that feel wrong on touch ── */
+@media (hover: none) and (pointer: coarse) {
+    .device-dash-card:hover {
+        transform: none;
+    }
+    .stat-tile:hover {
+        transform: none;
+    }
+    .custom-card:hover {
+        transform: none;
+    }
+    .ai-sugg-btn:hover {
+        transform: none;
+    }
+    .ai-chat-send-btn:hover {
+        transform: none;
+    }
+    /* Larger tap targets on touch */
+    .ai-mic-btn,
+    .ai-chat-send-btn,
+    .ai-speaker-btn,
+    .ai-chat-clear-btn {
+        min-width: 40px;
+        min-height: 40px;
+    }
+    .device-dash-toggle {
+        min-width: 48px;
+        min-height: 28px;
+    }
+}
+
+/* ── Mobile Bottom Navigation Bar ───────────────────────────── */
+.mobile-bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1050;
+    background: var(--card-bg);
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+    border-top: 1px solid rgba(0,0,0,0.08);
+    padding: 0.35rem 0 calc(0.35rem + env(safe-area-inset-bottom));
+    justify-content: space-around;
+    align-items: center;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.08);
+}
+html[data-theme='dark'] .mobile-bottom-nav {
+    border-top-color: rgba(255,255,255,0.08);
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.3);
+}
+.mobile-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+    padding: 0.3rem 0.6rem;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    border-radius: 12px;
+    min-width: 52px;
+    transition: color 0.2s, background 0.2s;
+    -webkit-tap-highlight-color: transparent;
+}
+.mobile-nav-item i {
+    font-size: 1.35rem;
+    line-height: 1;
+    transition: transform 0.2s var(--ease-out-expo);
+}
+.mobile-nav-item:hover,
+.mobile-nav-item.active {
+    color: var(--primary-color);
+}
+.mobile-nav-item.active i {
+    transform: translateY(-2px) scale(1.12);
+}
+.mobile-nav-item.active {
+    background: rgba(79,70,229,0.08);
+}
+
+/* Push page content above the mobile bottom nav */
+@media (max-width: 767.98px) {
+    body.app-body {
+        padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+    }
+    .app-navbar .navbar-collapse {
+        background: var(--card-bg);
+        border-radius: 0 0 18px 18px;
+        padding: 0.5rem 0.75rem 0.75rem;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    }
 }
