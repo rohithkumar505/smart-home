@@ -2644,9 +2644,48 @@ html[data-theme='dark'] .mobile-bottom-nav {
 }
 
 .mobile-more-offcanvas {
-    height: auto !important;
-    max-height: 70vh;
+    z-index: 1070 !important;
+    bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px)) !important;
+    height: min(72vh, calc(100dvh - 5.5rem - env(safe-area-inset-bottom, 0px))) !important;
+    max-height: min(72vh, calc(100dvh - 5.5rem - env(safe-area-inset-bottom, 0px))) !important;
     border-radius: 20px 20px 0 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.mobile-more-offcanvas .offcanvas-header {
+    flex-shrink: 0;
+}
+
+.mobile-more-offcanvas .offcanvas-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    padding-bottom: 1.25rem;
+    position: relative;
+}
+
+.mobile-more-offcanvas .offcanvas-body::after {
+    content: '';
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: block;
+    height: 1.5rem;
+    margin-top: -1.5rem;
+    pointer-events: none;
+    background: linear-gradient(to bottom, transparent, var(--card-bg));
+}
+
+.mobile-more-grid {
+    margin-bottom: 0.5rem;
 }
 
 .mobile-more-tile {
@@ -2681,8 +2720,22 @@ html[data-theme='dark'] .mobile-more-tile {
     background: rgba(129, 140, 248, 0.1);
 }
 
+.mobile-more-tile--danger i {
+    color: var(--bs-danger, #dc3545);
+}
+
+.mobile-more-tile--action {
+    cursor: pointer;
+    width: 100%;
+    border: none;
+    font: inherit;
+}
+
 /* Push page content above the mobile bottom nav */
 @media (max-width: 767.98px) {
+    .offcanvas-backdrop {
+        z-index: 1060 !important;
+    }
     body.app-body {
         padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
     }

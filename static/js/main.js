@@ -402,10 +402,10 @@ function setUiTheme(mode) {
     try {
         localStorage.setItem('smUiTheme', m);
     } catch (e) {}
-    document.querySelectorAll('#themeToggleNav i, #themeToggleGuest i').forEach(function (icon) {
+    document.querySelectorAll('#themeToggleNav i, #themeToggleGuest i, #themeToggleMore i').forEach(function (icon) {
         icon.className = m === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-stars-fill';
     });
-    document.querySelectorAll('#themeToggleNav, #themeToggleGuest').forEach(function (btn) {
+    document.querySelectorAll('#themeToggleNav, #themeToggleGuest, #themeToggleMore').forEach(function (btn) {
         if (!btn) return;
         btn.setAttribute('aria-label', m === 'dark' ? 'Switch to light theme' : 'Switch to dark theme');
         btn.setAttribute('title', m === 'dark' ? 'Light theme' : 'Dark theme');
@@ -418,7 +418,7 @@ function toggleUiTheme() {
 
 function initUiThemeControls() {
     setUiTheme(getUiTheme());
-    ['themeToggleNav', 'themeToggleGuest'].forEach(function (id) {
+    ['themeToggleNav', 'themeToggleGuest', 'themeToggleMore'].forEach(function (id) {
         var el = document.getElementById(id);
         if (el) el.addEventListener('click', toggleUiTheme);
     });
