@@ -8,6 +8,10 @@ import re
 import threading
 import time
 import zipfile
+
+USE_MONGO = bool((os.environ.get('MONGODB_URI') or os.environ.get('MONGO_URI') or '').strip())
+IS_VERCEL = bool(os.environ.get('VERCEL'))
+
 from io import BytesIO, StringIO
 from urllib.parse import urlparse
 from collections import defaultdict
@@ -26,25 +30,38 @@ from flask import (
     send_file,
 )
 from fpdf import FPDF
-from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
-import sqlite3
-from sqlalchemy import func, inspect, text, event
-from sqlalchemy.engine import Engine
-from sqlalchemy.orm import joinedload
+if not USE_MONGO:
+    from flask_sqlalchemy import SQLAlchemy
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import generate_password_hash, check_password_hash
 from voice_commands import parse_voice_intent
 
-@event.listens_for(Engine, "connect")
-def set_sqlite_pragma(dbapi_connection, connection_record):
-    if type(dbapi_connection) is sqlite3.Connection:
-        cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA journal_mode=WAL")
-        cursor.execute("PRAGMA synchronous=NORMAL")
-        cursor.execute("PRAGMA cache_size=-64000")
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.close()
+if not USE_MONGO:
+    import sqlite3
+    from sqlalchemy import func, inspect, text, event
+    from sqlalchemy.engine import Engine
+    from sqlalchemy.orm import joinedload
+
+    @event.listens_for(Engine, 'connect')
+    def set_sqlite_pragma(dbapi_connection, connection_record):
+        if type(dbapi_connection) is sqlite3.Connection:
+            cursor = dbapi_connection.cursor()
+            cursor.execute('PRAGMA journal_mode=WAL')
+            cursor.execute('PRAGMA synchronous=NORMAL')
+            cursor.execute('PRAGMA cache_size=-64000')
+            cursor.execute('PRAGMA foreign_keys=ON')
+            cursor.close()
+else:
+    class _NoopLoad:
+        def joinedload(self, *args, **kwargs):
+            return self
+
+    def joinedload(*args, **kwargs):  # noqa: F811
+        return _NoopLoad()
+
+    inspect = None  # type: ignore
+    text = None  # type: ignore
 
 # Nominal draw (watts) per device type when ON — used to estimate load from real DB on/off state.
 NOMINAL_WATTS_BY_TYPE = {
@@ -61,28 +78,51 @@ ALLOWED_DEVICE_TYPES = frozenset(NOMINAL_WATTS_BY_TYPE.keys())
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY') or 'dev-secret-change-with-FLASK_SECRET_KEY'
 
-# Production: set DATABASE_URL (Render/Railway Postgres). Local: default SQLite file.
-_db_url = (os.environ.get('DATABASE_URL') or '').strip()
-if not _db_url:
-    _db_url = 'sqlite:///database.db'
-elif _db_url.startswith('postgres://'):
-    # SQLAlchemy / psycopg2 expect postgresql://
-    _db_url = 'postgresql://' + _db_url[len('postgres://') :]
-app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-# SQLite-only connect tuning (Postgres ignores these; do not pass them to psycopg2)
-if _db_url.startswith('sqlite'):
-    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-        'connect_args': {
-            'check_same_thread': False,
-            'timeout': 15,
-        }
-    }
+# Production: MongoDB Atlas on Vercel, or DATABASE_URL (Postgres) / SQLite locally.
+if USE_MONGO:
+    from mongo_store import (  # noqa: E402
+        db,
+        func,
+        User,
+        Room,
+        Device,
+        Log,
+        Schedule,
+        Prediction,
+        Notification,
+        EnergySnapshot,
+        CommandRecord,
+        CustomMode,
+        CustomModeDevice,
+        UserDashboardLayout,
+        AutomationRule,
+        init_database as mongo_init_database,
+    )
 else:
-    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {}
+    _db_url = (os.environ.get('DATABASE_URL') or '').strip()
+    if not _db_url:
+        _db_url = 'sqlite:///database.db'
+    elif _db_url.startswith('postgres://'):
+        _db_url = 'postgresql://' + _db_url[len('postgres://') :]
+    app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    if _db_url.startswith('sqlite'):
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+            'connect_args': {
+                'check_same_thread': False,
+                'timeout': 15,
+            }
+        }
+    else:
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {}
+    db = SQLAlchemy(app)
+    from sql_models import define_models
 
-# Server-side signed session (Flask) + Flask-Login user id in session
+    (
+        User, Room, Device, Log, Schedule, Prediction, Notification,
+        EnergySnapshot, CommandRecord, CustomMode, CustomModeDevice,
+        UserDashboardLayout, AutomationRule,
+    ) = define_models(db)
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
@@ -92,15 +132,18 @@ app.config['REMEMBER_COOKIE_DURATION'] = timedelta(days=30)
 app.config['REMEMBER_COOKIE_HTTPONLY'] = True
 app.config['REMEMBER_COOKIE_SAMESITE'] = 'Lax'
 
-# HTTPS + reverse proxy (Render, etc.): secure cookies, correct scheme behind TLS termination
-_prod = bool(os.environ.get('RENDER') or os.environ.get('FLASK_ENV', '').lower() == 'production')
+# HTTPS + reverse proxy (Render, Vercel, etc.): secure cookies behind TLS termination
+_prod = bool(
+    os.environ.get('RENDER')
+    or os.environ.get('VERCEL')
+    or os.environ.get('FLASK_ENV', '').lower() == 'production'
+)
 if _prod:
     app.config['SESSION_COOKIE_SECURE'] = True
     app.config['REMEMBER_COOKIE_SECURE'] = True
     app.config['PREFERRED_URL_SCHEME'] = 'https'
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
-db = SQLAlchemy(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
@@ -117,157 +160,6 @@ def inject_nav_context():
             unread = 0
         return {'unread_notification_count': unread}
     return {'unread_notification_count': 0}
-
-
-# --- Models ---
-
-class User(UserMixin, db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(150), unique=True, nullable=False)
-    password = db.Column(db.String(150), nullable=False)
-    mode = db.Column(db.String(50), default='Day')  # legacy column; UI profile Day/Night/Away removed
-    # Optional: user’s utility price per kWh (same currency for all UI display)
-    energy_cost_per_kwh = db.Column(db.Float, nullable=True)
-
-class Room(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    devices = db.relationship('Device', backref='room', lazy=True, cascade='all, delete')
-
-class Device(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    type = db.Column(db.String(50), nullable=False) # e.g., 'Light', 'Fan', 'AC', 'Lock'
-    status = db.Column(db.Boolean, default=False) # True for ON, False for OFF
-    room_id = db.Column(db.Integer, db.ForeignKey('room.id'), nullable=False)
-
-class Log(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
-    action = db.Column(db.String(255), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
-
-class Schedule(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    device_id = db.Column(db.Integer, db.ForeignKey('device.id'), nullable=False)
-    action = db.Column(db.Boolean, nullable=False)  # True = ON, False = OFF
-    time = db.Column(db.String(5), nullable=False)  # HH:MM (server local time)
-    active = db.Column(db.Boolean, default=True)
-    last_fired_at = db.Column(db.DateTime, nullable=True)
-    device = db.relationship('Device', backref=db.backref('schedules', lazy=True))
-
-class Prediction(db.Model):
-    """Predicted daily automations inferred from repeated log activity."""
-    __tablename__ = 'prediction'
-    __table_args__ = (
-        db.UniqueConstraint('user_id', 'device_id', 'action', 'predicted_time', name='uq_prediction_user_device_action_time'),
-    )
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
-    device_id = db.Column(db.Integer, db.ForeignKey('device.id'), nullable=False, index=True)
-    action = db.Column(db.Boolean, nullable=False)  # True = ON, False = OFF
-    predicted_time = db.Column(db.String(5), nullable=False)  # HH:MM
-    confidence = db.Column(db.Float, nullable=False, default=0.0)
-    sample_days = db.Column(db.Integer, nullable=False, default=0)
-    auto_enabled = db.Column(db.Boolean, nullable=False, default=False)
-    schedule_id = db.Column(db.Integer, db.ForeignKey('schedule.id'), nullable=True)
-    last_detected_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-    device = db.relationship('Device', backref=db.backref('predictions', lazy=True))
-    schedule = db.relationship('Schedule', backref=db.backref('prediction_links', lazy=True))
-
-class Notification(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    message = db.Column(db.String(255), nullable=False)
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow, index=True)
-    read = db.Column(db.Boolean, default=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    # Bootstrap-style category for toast styling: info | success | warning | danger
-    category = db.Column(db.String(16), default='info')
-
-
-class EnergySnapshot(db.Model):
-    """Recorded total estimated watts whenever device power state changes (from real device rows)."""
-    id = db.Column(db.Integer, primary_key=True)
-    recorded_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
-    total_watts = db.Column(db.Integer, nullable=False)
-
-
-class CommandRecord(db.Model):
-    """Stored voice-style commands and outcomes."""
-    __tablename__ = 'command_record'
-    id = db.Column(db.Integer, primary_key=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
-    raw_text = db.Column(db.String(500), nullable=False)
-    action = db.Column(db.String(8), nullable=True)  # 'on' or 'off'
-    device_id = db.Column(db.Integer, db.ForeignKey('device.id'), nullable=True)
-    success = db.Column(db.Boolean, nullable=False, default=False)
-    response_message = db.Column(db.String(500), nullable=False, default='')
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
-    device = db.relationship('Device', backref=db.backref('command_records', lazy='dynamic'))
-
-
-class CustomMode(db.Model):
-    """User-defined preset (e.g. Night Mode): name + per-device ON/OFF targets."""
-    __tablename__ = 'custom_mode'
-    __table_args__ = (db.UniqueConstraint('user_id', 'name', name='uq_custom_mode_user_name'),)
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    name = db.Column(db.String(100), nullable=False)
-    user = db.relationship('User', backref=db.backref('custom_modes', lazy=True))
-    assignments = db.relationship(
-        'CustomModeDevice',
-        back_populates='custom_mode',
-        lazy=True,
-        cascade='all, delete-orphan',
-    )
-
-
-class CustomModeDevice(db.Model):
-    """One device target inside a custom mode."""
-    __tablename__ = 'custom_mode_device'
-    __table_args__ = (db.UniqueConstraint('custom_mode_id', 'device_id', name='uq_custom_mode_device'),)
-    id = db.Column(db.Integer, primary_key=True)
-    custom_mode_id = db.Column(db.Integer, db.ForeignKey('custom_mode.id'), nullable=False)
-    device_id = db.Column(db.Integer, db.ForeignKey('device.id'), nullable=False)
-    want_on = db.Column(db.Boolean, nullable=False)
-    custom_mode = db.relationship('CustomMode', back_populates='assignments')
-    device = db.relationship('Device', backref=db.backref('custom_mode_slots', lazy=True))
-
-
-class UserDashboardLayout(db.Model):
-    """Per-user ordering of device cards on the main dashboard (JSON list of device ids)."""
-    __tablename__ = 'user_dashboard_layout'
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), primary_key=True)
-    device_order_json = db.Column(db.Text, nullable=False, default='[]')
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-    user = db.relationship('User', backref=db.backref('dashboard_layout', uselist=False))
-
-
-class AutomationRule(db.Model):
-    """
-    IF (optional device state) AND (optional local-time window) THEN set one device or all of a type.
-    Conditions are AND-combined. Time window supports overnight (e.g. after 22:00 before 06:00).
-    """
-    __tablename__ = 'automation_rule'
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False, index=True)
-    name = db.Column(db.String(150), default='')
-    active = db.Column(db.Boolean, default=True, nullable=False)
-    # Conditions (all that are set must pass)
-    cond_device_id = db.Column(db.Integer, db.ForeignKey('device.id', ondelete='SET NULL'), nullable=True, index=True)
-    cond_device_want_on = db.Column(db.Boolean, default=True, nullable=False)
-    cond_time_after = db.Column(db.String(5), nullable=True)   # HH:MM local
-    cond_time_before = db.Column(db.String(5), nullable=True)
-    # Action: exactly one of action_device_id or action_device_type
-    action_device_id = db.Column(db.Integer, db.ForeignKey('device.id', ondelete='SET NULL'), nullable=True, index=True)
-    action_device_type = db.Column(db.String(50), nullable=True)
-    action_set_on = db.Column(db.Boolean, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    last_fired_at = db.Column(db.DateTime, nullable=True)
-    cond_device = db.relationship('Device', foreign_keys=[cond_device_id], backref=db.backref('automation_rules_if', lazy='dynamic'))
-    action_device = db.relationship('Device', foreign_keys=[action_device_id], backref=db.backref('automation_rules_then', lazy='dynamic'))
 
 
 @app.before_request
@@ -340,7 +232,8 @@ def parse_log_for_ui(action):
 
 
 def ensure_notification_category_column():
-    """SQLite: add category if DB existed before that column."""
+    if USE_MONGO:
+        return
     try:
         insp = inspect(db.engine)
         cols = {c['name'] for c in insp.get_columns('notification')}
@@ -397,6 +290,8 @@ def record_energy_snapshot():
 
 
 def ensure_user_energy_cost_column():
+    if USE_MONGO:
+        return
     """SQLite: add energy_cost_per_kwh to user if missing."""
     try:
         insp = inspect(db.engine)
@@ -651,6 +546,8 @@ def build_system_health(devices, on_devices):
 
 
 def ensure_schedule_last_fired_column():
+    if USE_MONGO:
+        return
     """SQLite: add last_fired_at if DB existed before that column."""
     try:
         insp = inspect(db.engine)
@@ -664,6 +561,8 @@ def ensure_schedule_last_fired_column():
 
 
 def ensure_prediction_table():
+    if USE_MONGO:
+        return
     """Create prediction table for existing DBs if missing."""
     try:
         Prediction.__table__.create(bind=db.engine, checkfirst=True)
@@ -672,6 +571,8 @@ def ensure_prediction_table():
 
 
 def ensure_user_dashboard_layout_table():
+    if USE_MONGO:
+        return
     try:
         UserDashboardLayout.__table__.create(bind=db.engine, checkfirst=True)
     except Exception:
@@ -679,6 +580,8 @@ def ensure_user_dashboard_layout_table():
 
 
 def ensure_automation_rule_table():
+    if USE_MONGO:
+        return
     try:
         AutomationRule.__table__.create(bind=db.engine, checkfirst=True)
     except Exception:
@@ -686,6 +589,8 @@ def ensure_automation_rule_table():
 
 
 def ensure_automation_rule_last_fired_column():
+    if USE_MONGO:
+        return
     ensure_automation_rule_table()
     try:
         insp = inspect(db.engine)
@@ -1149,6 +1054,8 @@ def start_schedule_background_runner():
 
 @app.before_request
 def _start_schedule_runner_once():
+    if IS_VERCEL:
+        return
     if request.endpoint == 'static':
         return
     start_schedule_background_runner()
@@ -3031,12 +2938,30 @@ def admin_db():
         logs=logs,
     )
 
+@app.route('/api/cron/tick')
+def cron_tick():
+    """Vercel Cron: run schedules and automation rules (no background thread on serverless)."""
+    secret = (os.environ.get('CRON_SECRET') or '').strip()
+    if secret:
+        auth = request.headers.get('Authorization', '')
+        if auth != f'Bearer {secret}':
+            abort(401)
+    with app.app_context():
+        tick_schedules()
+        tick_automation_rules()
+    return jsonify({'ok': True})
+
+
 def init_database():
     """
-    Create or update the SQLite file (database.db): all tables, schema patches,
-    default admin user, optional energy snapshot baseline.
+    Create or update database schema and seed default admin user.
     Safe to run multiple times.
     """
+    if USE_MONGO:
+        mongo_init_database()
+        if EnergySnapshot.query.count() == 0 and Device.query.count() > 0:
+            record_energy_snapshot()
+        return
     db.create_all()
     ensure_schedule_last_fired_column()
     ensure_notification_category_column()
