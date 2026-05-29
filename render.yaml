@@ -1,5 +1,5 @@
-# Blueprint for https://render.com — connect this repo, then "New" -> "Blueprint"
-# Or create a Web Service manually: build `pip install -r requirements.txt`, start `gunicorn wsgi:app --bind 0.0.0.0:$PORT`
+# Render Blueprint — https://render.com
+# Connect repo → New → Blueprint, OR create Web Service manually with same settings.
 services:
   - type: web
     name: smart-home
@@ -10,3 +10,8 @@ services:
     envVars:
       - key: FLASK_SECRET_KEY
         generateValue: true
+      - key: FLASK_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+    healthCheckPath: /login
