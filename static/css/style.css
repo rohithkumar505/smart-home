@@ -1740,13 +1740,15 @@ html[data-theme='dark'] .usage-heatmap__legend {
 /* Floating assistant widget (bottom-right) */
 .ai-assistant-wrap {
     position: fixed;
-    z-index: 1080;
+    z-index: 1090;
     bottom: 1.35rem;
     right: 1.35rem;
+    left: auto;
     display: flex;
-    flex-direction: column;
+    flex-direction: column-reverse;
     align-items: flex-end;
-    gap: 0.85rem;
+    justify-content: flex-end;
+    gap: 0.75rem;
     pointer-events: none;
 }
 
@@ -2295,22 +2297,28 @@ html[data-theme='dark'] .ai-mic-btn:hover {
         font-size: 1.6rem;
     }
 
-    /* AI Chat floating widget — mobile */
+    /* AI Chat floating widget — pinned bottom-right above mobile nav */
     .ai-assistant-wrap {
-        bottom: calc(4.85rem + env(safe-area-inset-bottom));
-        right: 1rem;
+        bottom: calc(4.15rem + env(safe-area-inset-bottom, 0px));
+        right: max(0.85rem, env(safe-area-inset-right, 0px));
+        left: auto;
+        gap: 0.65rem;
     }
 
     .ai-assistant-panel {
-        width: calc(100vw - 2rem);
-        max-height: min(480px, calc(100dvh - 10rem));
-        border-radius: 18px;
+        width: min(392px, calc(100vw - 1.7rem));
+        max-height: min(68dvh, calc(100dvh - 8.5rem - env(safe-area-inset-bottom, 0px)));
+        border-radius: 18px 18px 10px 18px;
+        transform-origin: bottom right;
     }
 
     .ai-assistant-fab {
-        width: 3.35rem;
-        height: 3.35rem;
-        font-size: 1.3rem;
+        width: 3.45rem;
+        height: 3.45rem;
+        font-size: 1.32rem;
+        animation: none;
+        flex-shrink: 0;
+        margin-left: auto;
     }
 
     .ai-chat-header {
@@ -2524,6 +2532,12 @@ html[data-theme='dark'] .ai-mic-btn:hover {
 
 /* ── Touch devices: disable hover effects that feel wrong on touch ── */
 @media (hover: none) and (pointer: coarse) {
+    .ai-assistant-fab {
+        animation: none;
+    }
+    .ai-assistant-fab:active {
+        transform: scale(0.96);
+    }
     .device-dash-card:hover {
         transform: none;
     }

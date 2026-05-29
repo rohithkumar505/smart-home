@@ -1,4 +1,9 @@
 <div class="ai-assistant-wrap" id="aiAssistantWrap" aria-live="polite">
+    <button type="button" class="ai-assistant-fab" id="aiAssistantFab" aria-label="Open AI assistant. Hold for voice." aria-expanded="false" aria-controls="aiChatPanel" title="Tap to open · hold for voice">
+        <span class="ai-assistant-fab__pulse" aria-hidden="true"></span>
+        <i class="bi bi-robot ai-assistant-fab__icon ai-assistant-fab__icon--open" aria-hidden="true"></i>
+        <i class="bi bi-x-lg ai-assistant-fab__icon ai-assistant-fab__icon--close" aria-hidden="true"></i>
+    </button>
     <div class="ai-chat-panel ai-assistant-panel" id="aiChatPanel" role="dialog" aria-label="AI Assistant" aria-hidden="true">
         <div class="ai-chat-header">
             <span class="ai-chat-badge"><i class="bi bi-robot me-1"></i>AI Assistant</span>
@@ -36,9 +41,4 @@
         </form>
         <p class="ai-voice-hint small text-muted mb-0 px-3 pb-2 d-none" id="aiVoiceHint"></p>
     </div>
-    <button type="button" class="ai-assistant-fab" id="aiAssistantFab" aria-label="Open AI assistant. Hold for voice." aria-expanded="false" aria-controls="aiChatPanel" title="Tap to open · hold for voice">
-        <span class="ai-assistant-fab__pulse" aria-hidden="true"></span>
-        <i class="bi bi-robot ai-assistant-fab__icon ai-assistant-fab__icon--open" aria-hidden="true"></i>
-        <i class="bi bi-x-lg ai-assistant-fab__icon ai-assistant-fab__icon--close" aria-hidden="true"></i>
-    </button>
 </div>
