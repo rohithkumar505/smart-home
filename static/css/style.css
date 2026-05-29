@@ -1736,6 +1736,161 @@ html[data-theme='dark'] .usage-heatmap__legend {
     overflow: hidden;
     max-height: 370px;
 }
+
+/* Floating assistant widget (bottom-right) */
+.ai-assistant-wrap {
+    position: fixed;
+    z-index: 1080;
+    bottom: 1.35rem;
+    right: 1.35rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.85rem;
+    pointer-events: none;
+}
+
+.ai-assistant-wrap > * {
+    pointer-events: auto;
+}
+
+.ai-assistant-panel {
+    width: min(392px, calc(100vw - 2rem));
+    max-height: min(540px, calc(100dvh - 7rem));
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(18px) scale(0.94);
+    transform-origin: bottom right;
+    transition:
+        opacity 0.32s var(--ease-out-expo),
+        transform 0.32s var(--ease-out-expo),
+        visibility 0.32s;
+    pointer-events: none;
+}
+
+.ai-assistant-wrap--open .ai-assistant-panel {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+}
+
+.ai-assistant-fab {
+    width: 3.65rem;
+    height: 3.65rem;
+    border: none;
+    border-radius: 50%;
+    background: linear-gradient(145deg, var(--primary-color), var(--secondary-color));
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.45rem;
+    cursor: pointer;
+    position: relative;
+    box-shadow:
+        0 10px 32px rgba(79, 70, 229, 0.42),
+        0 0 0 1px rgba(255, 255, 255, 0.18) inset;
+    transition:
+        transform 0.28s var(--ease-out-expo),
+        box-shadow 0.28s ease;
+    animation: aiFabFloat 3.2s ease-in-out infinite;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.ai-assistant-fab:hover {
+    transform: scale(1.06);
+    box-shadow: 0 14px 40px rgba(79, 70, 229, 0.5);
+}
+
+.ai-assistant-wrap--open .ai-assistant-fab {
+    animation: none;
+    transform: scale(1);
+    background: linear-gradient(145deg, #312e81, #4c1d95);
+}
+
+.ai-assistant-fab__pulse {
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    border: 2px solid rgba(79, 70, 229, 0.45);
+    animation: aiFabRing 2.2s ease-out infinite;
+    pointer-events: none;
+}
+
+.ai-assistant-wrap--open .ai-assistant-fab__pulse {
+    display: none;
+}
+
+@keyframes aiFabFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-7px); }
+}
+
+@keyframes aiFabRing {
+    0% {
+        transform: scale(0.92);
+        opacity: 0.75;
+    }
+    100% {
+        transform: scale(1.35);
+        opacity: 0;
+    }
+}
+
+.ai-assistant-fab__icon {
+    line-height: 1;
+}
+
+.ai-assistant-fab__icon--close {
+    display: none;
+    font-size: 1.25rem;
+}
+
+.ai-assistant-wrap--open .ai-assistant-fab__icon--open {
+    display: none;
+}
+
+.ai-assistant-wrap--open .ai-assistant-fab__icon--close {
+    display: block;
+}
+
+.ai-assistant-close-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1rem;
+    padding: 0.15rem 0.35rem;
+    border-radius: 8px;
+    cursor: pointer;
+    line-height: 1;
+    margin-left: 0.15rem;
+    transition: color 0.2s, background 0.2s;
+}
+
+.ai-assistant-close-btn:hover {
+    color: var(--primary-color);
+    background: rgba(79, 70, 229, 0.08);
+}
+
+.ai-voice-hint {
+    font-size: 0.72rem;
+    line-height: 1.35;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+    padding-top: 0.5rem !important;
+}
+
+html[data-theme='dark'] .ai-voice-hint {
+    border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+body.modal-open .ai-assistant-wrap {
+    z-index: 1025;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
 html[data-theme='dark'] .ai-chat-panel {
     border-color: rgba(255,255,255,0.1);
 }
@@ -2079,10 +2234,9 @@ html[data-theme='dark'] .ai-mic-btn:hover {
         max-width: 100%;
     }
 
-    /* AI Chat panel — full width, taller on tablet */
-    .ai-chat-panel {
-        max-height: 420px;
-        border-radius: 18px;
+    /* AI assistant widget — tablet */
+    .ai-assistant-panel {
+        max-height: min(500px, calc(100dvh - 8rem));
     }
 
     /* Stat tiles — 2 per row */
@@ -2141,12 +2295,24 @@ html[data-theme='dark'] .ai-mic-btn:hover {
         font-size: 1.6rem;
     }
 
-    /* AI Chat panel — compact, full width */
-    .ai-chat-panel {
-        max-height: 360px;
-        border-radius: 16px;
-        margin-top: 1rem;
+    /* AI Chat floating widget — mobile */
+    .ai-assistant-wrap {
+        bottom: calc(4.85rem + env(safe-area-inset-bottom));
+        right: 1rem;
     }
+
+    .ai-assistant-panel {
+        width: calc(100vw - 2rem);
+        max-height: min(480px, calc(100dvh - 10rem));
+        border-radius: 18px;
+    }
+
+    .ai-assistant-fab {
+        width: 3.35rem;
+        height: 3.35rem;
+        font-size: 1.3rem;
+    }
+
     .ai-chat-header {
         padding: 0.6rem 0.85rem;
     }
@@ -2253,12 +2419,26 @@ html[data-theme='dark'] .ai-mic-btn:hover {
         padding: 0.65rem 0.9rem;
     }
 
-    /* Modal dialogs */
+    /* Modal dialogs — above fixed mobile bottom nav (z-index 1050) */
+    .modal {
+        z-index: 1060;
+    }
+    .modal-backdrop {
+        z-index: 1055;
+    }
+    body.modal-open .mobile-bottom-nav {
+        z-index: 1030;
+        pointer-events: none;
+    }
     .modal-dialog {
-        margin: 0.5rem;
+        margin: 0.75rem auto;
+        max-width: calc(100% - 1.5rem);
     }
     .modal-content {
         border-radius: 18px;
+    }
+    .modal-dialog-scrollable .modal-content {
+        max-height: calc(100dvh - 1.5rem - env(safe-area-inset-bottom));
     }
 
     /* Smart recommendations */
@@ -2331,8 +2511,8 @@ html[data-theme='dark'] .ai-mic-btn:hover {
 
 /* ── Desktop large: ≥ 1400px ─────────────────────────────────── */
 @media (min-width: 1400px) {
-    .ai-chat-panel {
-        max-height: 420px;
+    .ai-assistant-panel {
+        max-height: min(560px, calc(100dvh - 6rem));
     }
     .hero-3d-inner {
         padding: 2.5rem 2rem !important;
@@ -2423,6 +2603,68 @@ html[data-theme='dark'] .mobile-bottom-nav {
 }
 .mobile-nav-item.active {
     background: rgba(79,70,229,0.08);
+}
+
+.mobile-nav-item__icon-wrap {
+    position: relative;
+    display: inline-flex;
+    line-height: 1;
+}
+
+.mobile-nav-badge {
+    position: absolute;
+    top: -0.35rem;
+    right: -0.55rem;
+    min-width: 1rem;
+    height: 1rem;
+    padding: 0 0.25rem;
+    border-radius: 999px;
+    background: #e11d48;
+    color: #fff;
+    font-size: 0.55rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+.mobile-more-offcanvas {
+    height: auto !important;
+    max-height: 70vh;
+    border-radius: 20px 20px 0 0;
+}
+
+.mobile-more-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    padding: 0.85rem 0.5rem;
+    border-radius: 14px;
+    background: rgba(79, 70, 229, 0.06);
+    color: var(--text-color);
+    text-decoration: none;
+    font-size: 0.72rem;
+    font-weight: 600;
+    min-height: 4.5rem;
+    transition: background 0.2s ease;
+}
+
+.mobile-more-tile i {
+    font-size: 1.35rem;
+    color: var(--primary-color);
+}
+
+.mobile-more-tile:hover,
+.mobile-more-tile:focus {
+    background: rgba(79, 70, 229, 0.12);
+    color: var(--text-color);
+}
+
+html[data-theme='dark'] .mobile-more-tile {
+    background: rgba(129, 140, 248, 0.1);
 }
 
 /* Push page content above the mobile bottom nav */

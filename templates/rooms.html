@@ -16,13 +16,33 @@
         <div class="card custom-card h-100">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-start mb-3">
-                    <h5 class="card-title fw-bold">{{ room.name }}</h5>
-                    <div class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill">
-                        {{ room.devices|length }} Devices
+                    <h5 class="card-title fw-bold mb-0">{{ room.name }}</h5>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-link text-muted p-0" type="button" data-bs-toggle="dropdown" aria-label="Room options">
+                            <i class="bi bi-three-dots-vertical fs-5"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#editRoomModal" data-room-id="{{ room.id }}" data-room-name="{{ room.name }}">
+                                    <i class="bi bi-pencil me-2"></i> Rename
+                                </button>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <form method="post" action="{{ url_for('delete_room', rid=room.id) }}" onsubmit="return confirm('Delete {{ room.name }}?{% if room.devices|length %} This room has devices and cannot be deleted.{% endif %}');">
+                                    <button type="submit" class="dropdown-item text-danger" {% if room.devices|length %}disabled{% endif %}>
+                                        <i class="bi bi-trash me-2"></i> Delete
+                                    </button>
+                                </form>
+                            </li>
+                        </ul>
                     </div>
                 </div>
+                <div class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill mb-3">
+                    {{ room.devices|length }} Devices
+                </div>
                 <div class="text-muted small mb-3">
-                    Active Devices: {{ room.devices|selectattr('status', 'equalto', True)|list|length }}
+                    Active Devices: {{ room.devices|selectattr('status', 'equalto', true)|list|length }}
                 </div>
                 
                 {% if room.devices %}
@@ -41,7 +61,7 @@
                 {% endif %}
             </div>
             <div class="card-footer bg-transparent border-top-0 pt-0">
-                <a href="{{ url_for('devices') }}?room={{ room.id }}" class="btn btn-sm btn-outline-primary w-100">View Devices</a>
+                <a href="{{ url_for('devices', room=room.id) }}" class="btn btn-sm btn-outline-primary w-100">View Devices</a>
             </div>
         </div>
     </div>
@@ -54,20 +74,21 @@
     </div>
     {% endfor %}
 </div>
+{% endblock %}
 
-<!-- Add Room Modal -->
-<div class="modal fade" id="addRoomModal" tabindex="-1">
-    <div class="modal-dialog">
+{% block page_modals %}
+<div class="modal fade" id="addRoomModal" tabindex="-1" aria-labelledby="addRoomModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Add New Room</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title" id="addRoomModalLabel">Add New Room</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form method="POST" action="{{ url_for('rooms') }}">
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label class="form-label">Room Name</label>
-                        <input type="text" name="name" class="form-control" placeholder="e.g. Living Room" required>
+                        <label class="form-label" for="addRoomName">Room Name</label>
+                        <input type="text" name="name" id="addRoomName" class="form-control" placeholder="e.g. Living Room" required autocomplete="off">
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -78,4 +99,39 @@
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="editRoomModal" tabindex="-1" aria-labelledby="editRoomModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editRoomModalLabel">Rename Room</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" id="editRoomForm" action="">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label" for="editRoomName">Room Name</label>
+                        <input type="text" name="name" id="editRoomName" class="form-control" required maxlength="100" autocomplete="off">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('editRoomModal')?.addEventListener('show.bs.modal', function (e) {
+    var btn = e.relatedTarget;
+    if (!btn) return;
+    var id = btn.getAttribute('data-room-id');
+    document.getElementById('editRoomForm').action = '/rooms/' + id + '/edit';
+    document.getElementById('editRoomName').value = btn.getAttribute('data-room-name') || '';
+});
+</script>
 {% endblock %}

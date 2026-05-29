@@ -43,6 +43,15 @@
                     </div>
                 </a>
             </div>
+            <div class="col-md-6">
+                <a href="{{ url_for('notifications') }}" class="text-decoration-none">
+                    <div class="card custom-card h-100 settings-tile p-4">
+                        <i class="bi bi-bell display-6 text-primary mb-3"></i>
+                        <h5 class="fw-semibold text-body">Notifications</h5>
+                        <p class="text-muted small mb-0">View alerts from device and room changes.</p>
+                    </div>
+                </a>
+            </div>
             <div class="col-12 text-center">
                 <a href="{{ url_for('devices') }}" class="small text-muted">View all devices</a>
             </div>
@@ -63,6 +72,29 @@
                         </div>
                     </form>
                     <p class="text-muted small mb-0 mt-2">Costs use estimated kWh from stored load snapshots (nominal power when devices are on). Clear the field to hide money estimates on the dashboard.</p>
+                </div>
+            </div>
+            <div class="col-12">
+                <div class="card custom-card p-4">
+                    <h5 class="fw-semibold mb-3"><i class="bi bi-shield-lock me-2"></i>Change password</h5>
+                    <form method="post" action="{{ url_for('settings') }}" class="row g-3">
+                        <input type="hidden" name="form_type" value="password">
+                        <div class="col-md-4">
+                            <label class="form-label small" for="current_password">Current password</label>
+                            <input type="password" name="current_password" id="current_password" class="form-control" required autocomplete="current-password">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small" for="new_password">New password</label>
+                            <input type="password" name="new_password" id="new_password" class="form-control" required minlength="6" autocomplete="new-password">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small" for="confirm_password">Confirm new password</label>
+                            <input type="password" name="confirm_password" id="confirm_password" class="form-control" required minlength="6" autocomplete="new-password">
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary rounded-pill px-4">Update password</button>
+                        </div>
+                    </form>
                 </div>
             </div>
             <div class="col-12">

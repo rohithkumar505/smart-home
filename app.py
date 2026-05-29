@@ -32,6 +32,7 @@ import sqlite3
 from sqlalchemy import func, inspect, text, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import joinedload
+from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import generate_password_hash, check_password_hash
 from voice_commands import parse_voice_intent
 
@@ -91,16 +92,32 @@ app.config['REMEMBER_COOKIE_DURATION'] = timedelta(days=30)
 app.config['REMEMBER_COOKIE_HTTPONLY'] = True
 app.config['REMEMBER_COOKIE_SAMESITE'] = 'Lax'
 
-# HTTPS on common hosts (cookies only sent over TLS)
-if os.environ.get('RENDER') or os.environ.get('FLASK_ENV', '').lower() == 'production':
+# HTTPS + reverse proxy (Render, etc.): secure cookies, correct scheme behind TLS termination
+_prod = bool(os.environ.get('RENDER') or os.environ.get('FLASK_ENV', '').lower() == 'production')
+if _prod:
     app.config['SESSION_COOKIE_SECURE'] = True
     app.config['REMEMBER_COOKIE_SECURE'] = True
+    app.config['PREFERRED_URL_SCHEME'] = 'https'
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 db = SQLAlchemy(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 login_manager.session_protection = 'strong'
+
+
+@app.context_processor
+def inject_nav_context():
+    if current_user.is_authenticated:
+        try:
+            ensure_notification_category_column()
+            unread = Notification.query.filter_by(user_id=current_user.id, read=False).count()
+        except Exception:
+            unread = 0
+        return {'unread_notification_count': unread}
+    return {'unread_notification_count': 0}
+
 
 # --- Models ---
 
@@ -248,6 +265,7 @@ class AutomationRule(db.Model):
     action_device_type = db.Column(db.String(50), nullable=True)
     action_set_on = db.Column(db.Boolean, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    last_fired_at = db.Column(db.DateTime, nullable=True)
     cond_device = db.relationship('Device', foreign_keys=[cond_device_id], backref=db.backref('automation_rules_if', lazy='dynamic'))
     action_device = db.relationship('Device', foreign_keys=[action_device_id], backref=db.backref('automation_rules_then', lazy='dynamic'))
 
@@ -667,6 +685,19 @@ def ensure_automation_rule_table():
         pass
 
 
+def ensure_automation_rule_last_fired_column():
+    ensure_automation_rule_table()
+    try:
+        insp = inspect(db.engine)
+        cols = {c['name'] for c in insp.get_columns('automation_rule')}
+        if 'last_fired_at' in cols:
+            return
+        with db.engine.begin() as conn:
+            conn.execute(text('ALTER TABLE automation_rule ADD COLUMN last_fired_at DATETIME'))
+    except Exception:
+        pass
+
+
 def _hhmm_to_minutes(hhmm):
     """Parse HH:MM to minutes 0..1439, or None."""
     if not hhmm or not str(hhmm).strip():
@@ -746,6 +777,7 @@ def _apply_one_automation_rule(rule):
 
 def tick_automation_rules():
     ensure_automation_rule_table()
+    ensure_automation_rule_last_fired_column()
     now = datetime.now()
     now_m = now.hour * 60 + now.minute
     for rule in (
@@ -761,7 +793,11 @@ def tick_automation_rules():
             continue
         if not automation_device_condition_ok(rule):
             continue
+        if rule.last_fired_at and (now - rule.last_fired_at).total_seconds() < 90:
+            continue
         if _apply_one_automation_rule(rule):
+            rule.last_fired_at = now
+            db.session.commit()
             record_energy_snapshot()
 
 
@@ -1747,24 +1783,103 @@ def logout():
 @login_required
 def rooms():
     if request.method == 'POST':
-        room_name = request.form.get('name')
-        if room_name:
-            new_room = Room(name=room_name)
-            db.session.add(new_room)
-            db.session.commit()
-            add_log(f"Added new room: {room_name}", current_user.id)
-            add_notification(f'Room added: {room_name}', current_user.id, 'success')
-            flash('Room added successfully!', 'success')
+        room_name = (request.form.get('name') or '').strip()
+        if not room_name:
+            flash('Enter a room name.', 'warning')
+        elif len(room_name) > 100:
+            flash('Room name is too long (100 characters max).', 'warning')
+        else:
+            try:
+                new_room = Room(name=room_name)
+                db.session.add(new_room)
+                db.session.commit()
+                add_log(f"Added new room: {room_name}", current_user.id)
+                add_notification(f'Room added: {room_name}', current_user.id, 'success')
+                flash('Room added successfully!', 'success')
+            except Exception as e:
+                db.session.rollback()
+                app.logger.exception('Failed to add room: %s', e)
+                flash('Could not save the room. Try again.', 'danger')
         return redirect(url_for('rooms'))
     all_rooms = Room.query.all()
     return render_template('rooms.html', rooms=all_rooms)
 
+
+@app.post('/rooms/<int:rid>/edit')
+@login_required
+def edit_room(rid):
+    room = db.session.get(Room, rid)
+    if room is None:
+        abort(404)
+    name = (request.form.get('name') or '').strip()
+    if not name:
+        flash('Enter a room name.', 'warning')
+    elif len(name) > 100:
+        flash('Room name is too long (100 characters max).', 'warning')
+    else:
+        old = room.name
+        room.name = name
+        db.session.commit()
+        add_log(f'Renamed room: {old} → {name}', current_user.id)
+        add_notification(f'Room renamed: {old} → {name}', current_user.id, 'info')
+        flash('Room updated.', 'success')
+    return redirect(url_for('rooms'))
+
+
+@app.post('/rooms/<int:rid>/delete')
+@login_required
+def delete_room(rid):
+    room = db.session.get(Room, rid)
+    if room is None:
+        abort(404)
+    n_dev = len(room.devices)
+    if n_dev > 0:
+        flash(
+            f'Cannot delete “{room.name}” — move or delete its {n_dev} device(s) first.',
+            'warning',
+        )
+        return redirect(url_for('rooms'))
+    label = room.name
+    db.session.delete(room)
+    db.session.commit()
+    add_log(f'Deleted room: {label}', current_user.id)
+    add_notification(f'Room deleted: {label}', current_user.id, 'info')
+    flash(f'Room “{label}” deleted.', 'info')
+    return redirect(url_for('rooms'))
+
+
 @app.route('/devices')
 @login_required
 def devices():
-    all_devices = Device.query.all()
-    rooms = Room.query.all()
-    return render_template('devices.html', devices=all_devices, rooms=rooms)
+    q = (request.args.get('q') or '').strip().lower()
+    room_raw = (request.args.get('room') or '').strip()
+    filter_room_id = int(room_raw) if room_raw.isdigit() else None
+    all_devices = (
+        Device.query.join(Room, Device.room_id == Room.id)
+        .order_by(Room.name, Device.name)
+        .all()
+    )
+    rooms = Room.query.order_by(Room.name).all()
+    filtered = all_devices
+    if filter_room_id is not None:
+        filtered = [d for d in filtered if d.room_id == filter_room_id]
+    if q:
+        filtered = [
+            d for d in filtered
+            if q in d.name.lower()
+            or q in d.type.lower()
+            or q in d.room.name.lower()
+        ]
+    filter_room = db.session.get(Room, filter_room_id) if filter_room_id else None
+    return render_template(
+        'devices.html',
+        devices=filtered,
+        rooms=rooms,
+        search_q=request.args.get('q') or '',
+        filter_room_id=filter_room_id,
+        filter_room=filter_room,
+        device_total=len(all_devices),
+    )
 
 @app.route('/devices/add', methods=['GET', 'POST'])
 @login_required
@@ -1790,6 +1905,69 @@ def add_device():
         flash('Choose a name, type, and room to continue.', 'danger')
         return redirect(url_for('add_device'))
     return render_template('add_device.html', rooms=rooms)
+
+
+@app.post('/devices/<int:did>/edit')
+@login_required
+def edit_device(did):
+    device = db.session.get(Device, did)
+    if device is None:
+        abort(404)
+    name = (request.form.get('name') or '').strip()
+    dtype = request.form.get('type')
+    room_id = request.form.get('room_id')
+    room = db.session.get(Room, int(room_id)) if room_id and str(room_id).isdigit() else None
+    if not name:
+        flash('Device name is required.', 'warning')
+    elif dtype not in ALLOWED_DEVICE_TYPES:
+        flash('Choose a valid device type.', 'warning')
+    elif not room:
+        flash('Choose a room.', 'warning')
+    else:
+        old_label = f'{device.name} ({device.room.name})'
+        device.name = name
+        device.type = dtype
+        device.room_id = room.id
+        db.session.commit()
+        add_log(f'Updated device: {old_label} → {name} in {room.name}', current_user.id)
+        add_notification(f'Device updated: {name} in {room.name}', current_user.id, 'info')
+        flash('Device updated.', 'success')
+    ref = request.form.get('next') or url_for('devices')
+    if ref.startswith('/') and not ref.startswith('//'):
+        return redirect(ref)
+    return redirect(url_for('devices'))
+
+
+@app.post('/devices/<int:did>/delete')
+@login_required
+def delete_device(did):
+    device = db.session.get(Device, did)
+    if device is None:
+        abort(404)
+    label = f'{device.name} ({device.room.name})'
+    dev_name = device.name
+    Schedule.query.filter_by(device_id=device.id).delete()
+    CustomModeDevice.query.filter_by(device_id=device.id).delete()
+    Prediction.query.filter_by(device_id=device.id).delete()
+    for rule in AutomationRule.query.filter(
+        (AutomationRule.cond_device_id == device.id)
+        | (AutomationRule.action_device_id == device.id)
+    ).all():
+        if rule.cond_device_id == device.id:
+            rule.cond_device_id = None
+        if rule.action_device_id == device.id:
+            rule.action_device_id = None
+    db.session.delete(device)
+    db.session.commit()
+    record_energy_snapshot()
+    add_log(f'Deleted device: {label}', current_user.id)
+    add_notification(f'Device deleted: {dev_name}', current_user.id, 'info')
+    flash(f'Device “{dev_name}” deleted.', 'info')
+    ref = request.form.get('next') or url_for('devices')
+    if ref.startswith('/') and not ref.startswith('//'):
+        return redirect(ref)
+    return redirect(url_for('devices'))
+
 
 @app.route('/toggle_device/<int:device_id>', methods=['POST'])
 @login_required
@@ -2384,6 +2562,44 @@ def toggle_schedule(sid):
     return redirect(url_for('schedules'))
 
 
+@app.post('/schedules/<int:sid>/edit')
+@login_required
+def edit_schedule(sid):
+    ensure_schedule_last_fired_column()
+    sch = db.session.get(Schedule, sid)
+    if sch is None:
+        abort(404)
+    device_id = (request.form.get('device_id') or '').strip()
+    action_raw = (request.form.get('action') or '').lower().strip()
+    time_raw = request.form.get('time') or ''
+    if not device_id.isdigit():
+        flash('Choose a device.', 'danger')
+        return redirect(url_for('schedules'))
+    dev = db.session.get(Device, int(device_id))
+    if not dev:
+        flash('Device not found.', 'danger')
+        return redirect(url_for('schedules'))
+    if action_raw not in ('on', 'off'):
+        flash('Action must be ON or OFF.', 'danger')
+        return redirect(url_for('schedules'))
+    hhmm = parse_schedule_time(time_raw)
+    if not hhmm:
+        flash('Enter a valid time.', 'danger')
+        return redirect(url_for('schedules'))
+    sch.device_id = dev.id
+    sch.action = action_raw == 'on'
+    sch.time = hhmm
+    sch.last_fired_at = None
+    db.session.commit()
+    add_notification(
+        f'Schedule updated: {dev.name} → {"ON" if sch.action else "OFF"} at {hhmm}',
+        current_user.id,
+        'info',
+    )
+    flash('Schedule updated.', 'success')
+    return redirect(url_for('schedules'))
+
+
 @app.route('/automation', methods=['GET', 'POST'])
 @login_required
 def automation_rules():
@@ -2395,48 +2611,11 @@ def automation_rules():
         .all()
     )
     if request.method == 'POST':
-        name = (request.form.get('name') or '').strip()[:150]
-        active = request.form.get('active') == 'on'
-        cid = (request.form.get('cond_device_id') or '').strip()
-        cond_device_id = int(cid) if cid.isdigit() else None
-        cond_device_want_on = (request.form.get('cond_device_want') or 'on').lower() != 'off'
-        ta = parse_schedule_time(request.form.get('cond_time_after') or '')
-        tb = parse_schedule_time(request.form.get('cond_time_before') or '')
-        action_kind = (request.form.get('action_kind') or 'device').lower()
-        aid = (request.form.get('action_device_id') or '').strip()
-        action_device_id = int(aid) if aid.isdigit() else None
-        atype = (request.form.get('action_device_type') or '').strip()
-        action_set_on = (request.form.get('action_want') or 'off').lower() == 'on'
-
-        if cond_device_id is not None and not db.session.get(Device, cond_device_id):
-            flash('Invalid device in condition.', 'danger')
+        data, err = _parse_automation_rule_form()
+        if err or data is None:
+            flash(err or 'Invalid form data.', 'danger')
             return redirect(url_for('automation_rules'))
-        if not (cond_device_id is not None or ta or tb):
-            flash('Add at least one condition: device state and/or a time window.', 'danger')
-            return redirect(url_for('automation_rules'))
-        if action_kind == 'device':
-            if not action_device_id or not db.session.get(Device, action_device_id):
-                flash('Choose a target device.', 'danger')
-                return redirect(url_for('automation_rules'))
-            act_id, act_type = action_device_id, None
-        else:
-            if atype not in ALLOWED_DEVICE_TYPES:
-                flash('Choose a valid device type for the action.', 'danger')
-                return redirect(url_for('automation_rules'))
-            act_id, act_type = None, atype
-
-        rule = AutomationRule(
-            user_id=current_user.id,
-            name=name,
-            active=active,
-            cond_device_id=cond_device_id,
-            cond_device_want_on=cond_device_want_on,
-            cond_time_after=ta,
-            cond_time_before=tb,
-            action_device_id=act_id,
-            action_device_type=act_type,
-            action_set_on=action_set_on,
-        )
+        rule = AutomationRule(user_id=current_user.id, **data)
         db.session.add(rule)
         db.session.commit()
         flash('Automation rule saved.', 'success')
@@ -2479,6 +2658,77 @@ def toggle_automation_rule(rid):
     db.session.commit()
     flash('Rule updated.', 'success')
     return redirect(url_for('automation_rules'))
+
+
+def _parse_automation_rule_form():
+    """Shared validation for create/edit automation rules."""
+    name = (request.form.get('name') or '').strip()[:150]
+    active = request.form.get('active') == 'on'
+    cid = (request.form.get('cond_device_id') or '').strip()
+    cond_device_id = int(cid) if cid.isdigit() else None
+    cond_device_want_on = (request.form.get('cond_device_want') or 'on').lower() != 'off'
+    ta = parse_schedule_time(request.form.get('cond_time_after') or '')
+    tb = parse_schedule_time(request.form.get('cond_time_before') or '')
+    action_kind = (request.form.get('action_kind') or 'device').lower()
+    aid = (request.form.get('action_device_id') or '').strip()
+    action_device_id = int(aid) if aid.isdigit() else None
+    atype = (request.form.get('action_device_type') or '').strip()
+    action_set_on = (request.form.get('action_want') or 'off').lower() == 'on'
+
+    if cond_device_id is not None and not db.session.get(Device, cond_device_id):
+        return None, 'Invalid device in condition.'
+    if not (cond_device_id is not None or ta or tb):
+        return None, 'Add at least one condition: device state and/or a time window.'
+    if action_kind == 'device':
+        if not action_device_id or not db.session.get(Device, action_device_id):
+            return None, 'Choose a target device.'
+        act_id, act_type = action_device_id, None
+    else:
+        if atype not in ALLOWED_DEVICE_TYPES:
+            return None, 'Choose a valid device type for the action.'
+        act_id, act_type = None, atype
+
+    return {
+        'name': name,
+        'active': active,
+        'cond_device_id': cond_device_id,
+        'cond_device_want_on': cond_device_want_on,
+        'cond_time_after': ta,
+        'cond_time_before': tb,
+        'action_device_id': act_id,
+        'action_device_type': act_type,
+        'action_set_on': action_set_on,
+    }, None
+
+
+@app.route('/automation/<int:rid>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_automation_rule(rid):
+    ensure_automation_rule_table()
+    rule = AutomationRule.query.filter_by(id=rid, user_id=current_user.id).first_or_404()
+    devices = (
+        Device.query.join(Room, Device.room_id == Room.id)
+        .order_by(Room.name, Device.name)
+        .options(joinedload(Device.room))
+        .all()
+    )
+    if request.method == 'POST':
+        data, err = _parse_automation_rule_form()
+        if err or data is None:
+            flash(err or 'Invalid form data.', 'danger')
+            return redirect(url_for('edit_automation_rule', rid=rid))
+        for k, v in data.items():
+            setattr(rule, k, v)
+        rule.last_fired_at = None
+        db.session.commit()
+        flash('Automation rule updated.', 'success')
+        return redirect(url_for('automation_rules'))
+    return render_template(
+        'automation_edit.html',
+        rule=rule,
+        devices=devices,
+        device_types=sorted(ALLOWED_DEVICE_TYPES),
+    )
 
 
 @app.post('/predictions/<int:pid>/enable')
@@ -2525,6 +2775,33 @@ def enable_prediction(pid):
     return redirect(url_for('dashboard'))
 
 
+@app.post('/predictions/<int:pid>/disable')
+@login_required
+def disable_prediction(pid):
+    ensure_prediction_table()
+    p = Prediction.query.filter_by(id=pid, user_id=current_user.id).first_or_404()
+    if p.schedule_id:
+        sch = db.session.get(Schedule, p.schedule_id)
+        if sch:
+            sch.active = False
+    p.auto_enabled = False
+    db.session.commit()
+    dname = p.device.name if p.device else 'device'
+    st = 'ON' if p.action else 'OFF'
+    tlabel = _hhmm_to_display(p.predicted_time)
+    add_log(f'Predictive automation disabled: {dname} → {st} at {p.predicted_time}', current_user.id)
+    add_notification(
+        f'Auto-disabled prediction: {dname} → {st} at {tlabel}.',
+        current_user.id,
+        'info',
+    )
+    flash(f'Disabled prediction for {dname}.', 'info')
+    ref_path = (urlparse(request.referrer or '').path or '').rstrip('/')
+    if ref_path.endswith('/predictions'):
+        return redirect(url_for('predictions'))
+    return redirect(url_for('dashboard'))
+
+
 @app.route('/modes', methods=['GET', 'POST'])
 @login_required
 def saved_modes():
@@ -2554,6 +2831,32 @@ def saved_modes():
         .all()
     )
     return render_template('modes.html', modes=modes)
+
+
+@app.post('/modes/<int:mid>/rename')
+@login_required
+def rename_saved_mode(mid):
+    mode = CustomMode.query.filter_by(id=mid, user_id=current_user.id).first_or_404()
+    raw = (request.form.get('name') or '').strip()
+    if not raw:
+        flash('Enter a name for the mode.', 'danger')
+        return redirect(url_for('saved_modes'))
+    if len(raw) > 100:
+        raw = raw[:100]
+    exists = CustomMode.query.filter(
+        CustomMode.user_id == current_user.id,
+        CustomMode.name == raw,
+        CustomMode.id != mode.id,
+    ).first()
+    if exists:
+        flash('You already have a mode with that name.', 'danger')
+        return redirect(url_for('saved_modes'))
+    old = mode.name
+    mode.name = raw
+    db.session.commit()
+    add_notification(f'Mode renamed: {old} → {raw}', current_user.id, 'info')
+    flash(f'Mode renamed to “{raw}”.', 'success')
+    return redirect(url_for('saved_modes'))
 
 
 @app.route('/modes/<int:mid>/edit', methods=['GET', 'POST'])
@@ -2637,6 +2940,22 @@ def delete_saved_mode(mid):
 def settings():
     ensure_user_energy_cost_column()
     if request.method == 'POST':
+        if request.form.get('form_type') == 'password':
+            current_p = request.form.get('current_password') or ''
+            new_p = request.form.get('new_password') or ''
+            confirm_p = request.form.get('confirm_password') or ''
+            if not check_password_hash(current_user.password, current_p):
+                flash('Current password is incorrect.', 'danger')
+            elif len(new_p) < 6:
+                flash('New password must be at least 6 characters.', 'danger')
+            elif new_p != confirm_p:
+                flash('New passwords do not match.', 'danger')
+            else:
+                current_user.password = generate_password_hash(new_p, method='pbkdf2:sha256')
+                db.session.commit()
+                add_notification('Password changed successfully.', current_user.id, 'success')
+                flash('Password updated.', 'success')
+            return redirect(url_for('settings'))
         if request.form.get('clear_rate') == '1':
             current_user.energy_cost_per_kwh = None
             db.session.commit()
@@ -2658,6 +2977,30 @@ def settings():
         flash('Energy cost setting saved.', 'success')
         return redirect(url_for('settings'))
     return render_template('settings.html', energy_rate=current_user.energy_cost_per_kwh)
+
+
+@app.route('/notifications')
+@login_required
+def notifications():
+    ensure_notification_category_column()
+    rows = (
+        Notification.query.filter_by(user_id=current_user.id)
+        .order_by(Notification.timestamp.desc())
+        .limit(200)
+        .all()
+    )
+    return render_template('notifications.html', notifications=rows)
+
+
+@app.post('/notifications/read-all')
+@login_required
+def read_all_notifications():
+    ensure_notification_category_column()
+    Notification.query.filter_by(user_id=current_user.id, read=False).update({'read': True})
+    db.session.commit()
+    flash('All notifications marked as read.', 'success')
+    return redirect(url_for('notifications'))
+
 
 @app.route('/notifications/read/<int:notif_id>', methods=['POST'])
 @login_required
@@ -2750,4 +3093,41 @@ def unhandled_exception(e):
 if __name__ == '__main__':
     with app.app_context():
         init_database()
-    app.run(host='0.0.0.0', debug=True, port=5005)
+    _port = int(os.environ.get('PORT', '5005'))
+    _https_port = int(os.environ.get('FLASK_HTTPS_PORT', '5006'))
+    _enable_https = os.environ.get('FLASK_ENABLE_HTTPS', '1').lower() not in ('0', 'false', 'no')
+    _reloader_child = os.environ.get('WERKZEUG_RUN_MAIN') == 'true'
+
+    def _run_https_server():
+        try:
+            from werkzeug.serving import make_server
+            srv = make_server('0.0.0.0', _https_port, app, ssl_context='adhoc', threaded=True)
+            srv.serve_forever()
+        except Exception as exc:
+            app.logger.warning('Optional HTTPS server failed: %s', exc)
+
+    if _enable_https and _reloader_child:
+        threading.Thread(target=_run_https_server, daemon=True).start()
+
+    import socket
+    try:
+        _lan_ip = socket.gethostbyname(socket.gethostname())
+        if _lan_ip.startswith('127.'):
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(('8.8.8.8', 80))
+            _lan_ip = s.getsockname()[0]
+            s.close()
+    except Exception:
+        _lan_ip = 'YOUR-IP'
+
+    print('\n' + '=' * 56)
+    print('  Smart Home — open in your browser')
+    print('=' * 56)
+    print(f'  Desktop:  http://127.0.0.1:{_port}')
+    print(f'  Mobile:   http://{_lan_ip}:{_port}')
+    if _enable_https:
+        print(f'  Voice (mobile): https://{_lan_ip}:{_https_port}')
+        print('              (accept certificate warning once on phone)')
+    print('=' * 56 + '\n')
+
+    app.run(host='0.0.0.0', debug=True, port=_port)

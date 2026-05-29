@@ -31,6 +31,10 @@
                 <span class="badge rounded-pill bg-light text-dark border">{{ m.assignments|length }} device{% if m.assignments|length != 1 %}s{% endif %}</span>
             </div>
             <h5 class="fw-bold mb-2">{{ m.name }}</h5>
+            <form method="post" action="{{ url_for('rename_saved_mode', mid=m.id) }}" class="mb-3 d-flex gap-2">
+                <input type="text" name="name" class="form-control form-control-sm" value="{{ m.name }}" maxlength="100" required aria-label="Rename mode">
+                <button type="submit" class="btn btn-sm btn-outline-secondary flex-shrink-0">Rename</button>
+            </form>
             {% if m.assignments %}
             <ul class="small text-muted mb-3 ps-3 flex-grow-1 mode-scene-card__list">
                 {% for a in m.assignments[:6] %}

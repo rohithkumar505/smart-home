@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="mb-4">
+            <a href="{{ url_for('automation_rules') }}" class="small text-muted text-decoration-none"><i class="bi bi-arrow-left me-1"></i> Back to rules</a>
+            <h2 class="fw-bold mb-2 mt-2">Edit automation rule</h2>
+        </div>
+
+        <div class="card custom-card p-4">
+            {% if devices %}
+            <form method="post" action="{{ url_for('edit_automation_rule', rid=rule.id) }}" class="vstack gap-3" id="automationEditForm">
+                <div>
+                    <label class="form-label">Name <span class="text-muted">(optional)</span></label>
+                    <input type="text" name="name" class="form-control" maxlength="150" value="{{ rule.name or '' }}" placeholder="e.g. Night lights off">
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="active" value="on" id="arActive" {% if rule.active %}checked{% endif %}>
+                    <label class="form-check-label" for="arActive">Enabled</label>
+                </div>
+
+                <div class="border rounded-3 p-3">
+                    <div class="fw-semibold small text-uppercase text-muted mb-2">If</div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Device in this state</label>
+                            <select name="cond_device_id" class="form-select">
+                                <option value="">— None —</option>
+                                {% for d in devices %}
+                                <option value="{{ d.id }}" {% if rule.cond_device_id == d.id %}selected{% endif %}>{{ d.name }} ({{ d.room.name }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">State</label>
+                            <select name="cond_device_want" class="form-select">
+                                <option value="on" {% if rule.cond_device_want_on %}selected{% endif %}>ON</option>
+                                <option value="off" {% if not rule.cond_device_want_on %}selected{% endif %}>OFF</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row g-3 mt-1">
+                        <div class="col-md-4">
+                            <label class="form-label">Local time after</label>
+                            <input type="time" name="cond_time_after" class="form-control" value="{{ rule.cond_time_after or '' }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Local time before</label>
+                            <input type="time" name="cond_time_before" class="form-control" value="{{ rule.cond_time_before or '' }}">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="border rounded-3 p-3">
+                    <div class="fw-semibold small text-uppercase text-muted mb-2">Then</div>
+                    <div class="btn-group mb-3" role="group">
+                        <input type="radio" class="btn-check" name="action_kind" value="device" id="akDevice" {% if rule.action_device_id %}checked{% endif %}>
+                        <label class="btn btn-outline-primary" for="akDevice">One device</label>
+                        <input type="radio" class="btn-check" name="action_kind" value="type" id="akType" {% if rule.action_device_type %}checked{% endif %}>
+                        <label class="btn btn-outline-primary" for="akType">All of type</label>
+                    </div>
+                    <div class="row g-3" id="targetDeviceRow">
+                        <div class="col-md-8">
+                            <label class="form-label">Target device</label>
+                            <select name="action_device_id" class="form-select" id="actionDeviceId">
+                                <option value="">— Choose —</option>
+                                {% for d in devices %}
+                                <option value="{{ d.id }}" {% if rule.action_device_id == d.id %}selected{% endif %}>{{ d.name }} ({{ d.room.name }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row g-3 d-none" id="targetTypeRow">
+                        <div class="col-md-5">
+                            <label class="form-label">Device type</label>
+                            <select name="action_device_type" class="form-select" id="actionDeviceType">
+                                <option value="">— Choose —</option>
+                                {% for t in device_types %}
+                                <option value="{{ t }}" {% if rule.action_device_type == t %}selected{% endif %}>{{ t }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row g-3 mt-1">
+                        <div class="col-md-3">
+                            <label class="form-label">Set to</label>
+                            <select name="action_want" class="form-select">
+                                <option value="on" {% if rule.action_set_on %}selected{% endif %}>ON</option>
+                                <option value="off" {% if not rule.action_set_on %}selected{% endif %}>OFF</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                    <button type="submit" class="btn btn-primary rounded-pill px-4">Save changes</button>
+                    <a href="{{ url_for('automation_rules') }}" class="btn btn-outline-secondary rounded-pill">Cancel</a>
+                </div>
+            </form>
+            <script>
+            (function () {
+                var akD = document.getElementById('akDevice');
+                var akT = document.getElementById('akType');
+                var rowD = document.getElementById('targetDeviceRow');
+                var rowT = document.getElementById('targetTypeRow');
+                function sync() {
+                    if (akT && akT.checked) {
+                        rowD.classList.add('d-none');
+                        rowT.classList.remove('d-none');
+                    } else {
+                        rowD.classList.remove('d-none');
+                        rowT.classList.add('d-none');
+                    }
+                }
+                if (akD) akD.addEventListener('change', sync);
+                if (akT) akT.addEventListener('change', sync);
+                sync();
+            })();
+            </script>
+            {% else %}
+            <p class="text-muted mb-0">Add at least one device first.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

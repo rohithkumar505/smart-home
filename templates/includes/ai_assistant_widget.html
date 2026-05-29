@@ -1,0 +1,44 @@
+<div class="ai-assistant-wrap" id="aiAssistantWrap" aria-live="polite">
+    <div class="ai-chat-panel ai-assistant-panel" id="aiChatPanel" role="dialog" aria-label="AI Assistant" aria-hidden="true">
+        <div class="ai-chat-header">
+            <span class="ai-chat-badge"><i class="bi bi-robot me-1"></i>AI Assistant</span>
+            <span class="ai-chat-hint d-none d-sm-inline">Speak or type — I'll talk back!</span>
+            <button type="button" class="ai-speaker-btn ai-speaker--on" id="aiSpeakerBtn" title="AI voice ON — click to mute" aria-label="Toggle AI voice">
+                <i class="bi bi-volume-up-fill"></i>
+            </button>
+            <button type="button" class="ai-chat-clear-btn" id="aiClearBtn" title="Clear chat" aria-label="Clear chat"><i class="bi bi-trash3"></i></button>
+            <button type="button" class="ai-assistant-close-btn" id="aiAssistantCloseBtn" title="Minimize" aria-label="Close assistant"><i class="bi bi-chevron-down"></i></button>
+        </div>
+        <div class="ai-chat-messages" id="aiChatMessages">
+            <div class="ai-bubble ai-bubble--bot">
+                <span class="ai-bubble__avatar"><i class="bi bi-robot"></i></span>
+                <div class="ai-bubble__body">
+                    <div class="ai-bubble__text">👋 Hi <strong>{{ current_user.username }}</strong>! I'm your Smart Home AI.<br>
+                    Type or <strong>🎙️ speak</strong> — say <em>"Turn on the fan"</em>, <em>"What's on?"</em>, <em>"Show energy"</em> and more.</div>
+                </div>
+            </div>
+        </div>
+        <div class="ai-chat-suggestions" id="aiSuggestions">
+            <button type="button" class="ai-sugg-btn" data-msg="What devices are on?">💡 What's on?</button>
+            <button type="button" class="ai-sugg-btn" data-msg="Show device status">📋 Status</button>
+            <button type="button" class="ai-sugg-btn" data-msg="Show energy usage">⚡ Energy</button>
+            <button type="button" class="ai-sugg-btn" data-msg="Give me tips">💡 Tips</button>
+            <button type="button" class="ai-sugg-btn" data-msg="Turn everything off">🌙 All off</button>
+        </div>
+        <form id="aiChatForm" class="ai-chat-input-row" autocomplete="off">
+            <button type="button" class="ai-mic-btn" id="aiMicBtn" aria-label="Voice command" title="Tap to speak — hold robot button for quick voice">
+                <i class="bi bi-mic-fill"></i>
+            </button>
+            <input type="text" id="aiChatInput" class="ai-chat-input" placeholder="Ask anything or speak 🎙️…" aria-label="AI command input" autocomplete="off" enterkeyhint="send">
+            <button type="submit" class="ai-chat-send-btn" id="aiSendBtn" aria-label="Send">
+                <i class="bi bi-send-fill"></i>
+            </button>
+        </form>
+        <p class="ai-voice-hint small text-muted mb-0 px-3 pb-2 d-none" id="aiVoiceHint"></p>
+    </div>
+    <button type="button" class="ai-assistant-fab" id="aiAssistantFab" aria-label="Open AI assistant. Hold for voice." aria-expanded="false" aria-controls="aiChatPanel" title="Tap to open · hold for voice">
+        <span class="ai-assistant-fab__pulse" aria-hidden="true"></span>
+        <i class="bi bi-robot ai-assistant-fab__icon ai-assistant-fab__icon--open" aria-hidden="true"></i>
+        <i class="bi bi-x-lg ai-assistant-fab__icon ai-assistant-fab__icon--close" aria-hidden="true"></i>
+    </button>
+</div>

@@ -58,6 +58,18 @@
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}"><i class="bi bi-speedometer2"></i> Dashboard</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'rooms' %}active{% endif %}" href="{{ url_for('rooms') }}"><i class="bi bi-grid-3x3-gap-fill"></i> Rooms</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'devices' %}active{% endif %}" href="{{ url_for('devices') }}"><i class="bi bi-toggles"></i> Devices</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'notifications' %}active{% endif %}" href="{{ url_for('notifications') }}">
+                            <i class="bi bi-bell"></i> Alerts
+                            {% if unread_notification_count %}<span class="badge rounded-pill bg-danger ms-1" data-unread-notif-badge>{{ unread_notification_count if unread_notification_count < 10 else '9+' }}</span>{% endif %}
+                        </a>
+                    </li>
                     {% if current_user.username == 'admin' %}
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'view_logs' %}active{% endif %}" href="{{ url_for('view_logs') }}"><i class="bi bi-journal-text"></i> Logs</a>
@@ -153,6 +165,7 @@
         {% block content %}{% endblock %}
     </div>
 
+    <script>window.SM_VOICE_HTTPS_PORT = '5006';</script>
     <!-- Bootstrap 5 JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Chart.js -->
@@ -177,15 +190,72 @@
             <i class="bi bi-grid-3x3-gap-fill"></i>
             <span>Rooms</span>
         </a>
-        <a class="mobile-nav-item {% if request.endpoint == 'analytics' %}active{% endif %}" href="{{ url_for('analytics') }}">
-            <i class="bi bi-bar-chart-fill"></i>
-            <span>Analytics</span>
+        <a class="mobile-nav-item {% if request.endpoint == 'notifications' %}active{% endif %}" href="{{ url_for('notifications') }}">
+            <span class="mobile-nav-item__icon-wrap">
+                <i class="bi bi-bell-fill"></i>
+                {% if unread_notification_count %}<span class="mobile-nav-badge" data-unread-notif-badge>{{ unread_notification_count if unread_notification_count < 10 else '9+' }}</span>{% endif %}
+            </span>
+            <span>Alerts</span>
         </a>
-        <a class="mobile-nav-item {% if request.endpoint == 'view_logs' %}active{% endif %}" href="{{ url_for('view_logs') }}">
-            <i class="bi bi-journal-text"></i>
-            <span>Logs</span>
-        </a>
+        <button type="button" class="mobile-nav-item border-0 bg-transparent {% if request.endpoint in ('schedules', 'automation_rules', 'predictions', 'saved_modes', 'settings', 'analytics', 'view_logs') %}active{% endif %}" data-bs-toggle="offcanvas" data-bs-target="#mobileMoreMenu" aria-label="More menu">
+            <i class="bi bi-grid"></i>
+            <span>More</span>
+        </button>
     </nav>
+
+    <div class="offcanvas offcanvas-bottom mobile-more-offcanvas" tabindex="-1" id="mobileMoreMenu" aria-labelledby="mobileMoreMenuLabel">
+        <div class="offcanvas-header border-bottom">
+            <h5 class="offcanvas-title fw-bold" id="mobileMoreMenuLabel">More</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body">
+            <div class="row g-2 mobile-more-grid">
+                <div class="col-4">
+                    <a href="{{ url_for('analytics') }}" class="mobile-more-tile">
+                        <i class="bi bi-bar-chart-fill"></i><span>Analytics</span>
+                    </a>
+                </div>
+                <div class="col-4">
+                    <a href="{{ url_for('schedules') }}" class="mobile-more-tile">
+                        <i class="bi bi-alarm"></i><span>Schedules</span>
+                    </a>
+                </div>
+                <div class="col-4">
+                    <a href="{{ url_for('automation_rules') }}" class="mobile-more-tile">
+                        <i class="bi bi-diagram-3"></i><span>Rules</span>
+                    </a>
+                </div>
+                <div class="col-4">
+                    <a href="{{ url_for('predictions') }}" class="mobile-more-tile">
+                        <i class="bi bi-stars"></i><span>Predictions</span>
+                    </a>
+                </div>
+                <div class="col-4">
+                    <a href="{{ url_for('saved_modes') }}" class="mobile-more-tile">
+                        <i class="bi bi-layers-half"></i><span>Modes</span>
+                    </a>
+                </div>
+                <div class="col-4">
+                    <a href="{{ url_for('settings') }}" class="mobile-more-tile">
+                        <i class="bi bi-gear"></i><span>Settings</span>
+                    </a>
+                </div>
+                {% if current_user.username == 'admin' %}
+                <div class="col-4">
+                    <a href="{{ url_for('view_logs') }}" class="mobile-more-tile">
+                        <i class="bi bi-journal-text"></i><span>Logs</span>
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
     {% endif %}
+
+    {% if current_user.is_authenticated %}
+    {% include 'includes/ai_assistant_widget.html' %}
+    {% endif %}
+
+    {% block page_modals %}{% endblock %}
 </body>
 </html>

@@ -65,6 +65,7 @@
                             <td><span class="badge bg-{{ 'success' if s.action else 'secondary' }}">{{ 'ON' if s.action else 'OFF' }}</span></td>
                             <td>{{ 'Active' if s.active else 'Paused' }}</td>
                             <td class="text-end">
+                                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editScheduleModal" data-schedule-id="{{ s.id }}" data-device-id="{{ s.device_id }}" data-action="{{ 'on' if s.action else 'off' }}" data-time="{{ s.time }}">Edit</button>
                                 <form method="post" action="{{ url_for('toggle_schedule', sid=s.id) }}" class="d-inline">
                                     <button type="submit" class="btn btn-sm btn-outline-secondary" title="Pause or resume">{{ 'Pause' if s.active else 'Resume' }}</button>
                                 </form>
@@ -84,4 +85,58 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block page_modals %}
+<div class="modal fade" id="editScheduleModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit schedule</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" id="editScheduleForm" action="">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Device</label>
+                        <select name="device_id" id="editScheduleDevice" class="form-select" required>
+                            {% for d in devices %}
+                            <option value="{{ d.id }}">{{ d.name }} — {{ d.room.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Action</label>
+                        <select name="action" id="editScheduleAction" class="form-select" required>
+                            <option value="on">Turn ON</option>
+                            <option value="off">Turn OFF</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Time</label>
+                        <input type="time" name="time" id="editScheduleTime" class="form-control" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('editScheduleModal')?.addEventListener('show.bs.modal', function (e) {
+    var btn = e.relatedTarget;
+    if (!btn) return;
+    var id = btn.getAttribute('data-schedule-id');
+    document.getElementById('editScheduleForm').action = '/schedules/' + id + '/edit';
+    document.getElementById('editScheduleDevice').value = btn.getAttribute('data-device-id') || '';
+    document.getElementById('editScheduleAction').value = btn.getAttribute('data-action') || 'on';
+    document.getElementById('editScheduleTime').value = btn.getAttribute('data-time') || '';
+});
+</script>
 {% endblock %}

@@ -164,6 +164,7 @@
                             <td class="small">{{ r|automation_rule_desc }}</td>
                             <td>{{ 'On' if r.active else 'Off' }}</td>
                             <td class="text-end">
+                                <a href="{{ url_for('edit_automation_rule', rid=r.id) }}" class="btn btn-sm btn-outline-primary">Edit</a>
                                 <form method="post" action="{{ url_for('toggle_automation_rule', rid=r.id) }}" class="d-inline">
                                     <button type="submit" class="btn btn-sm btn-outline-secondary" title="Pause or resume">{{ 'Disable' if r.active else 'Enable' }}</button>
                                 </form>

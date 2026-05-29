@@ -368,6 +368,16 @@ function markRead(notifId) {
                 if (isNaN(n)) n = 0;
                 stat.textContent = Math.max(0, n - 1);
             }
+            document.querySelectorAll('[data-unread-notif-badge]').forEach(function (el) {
+                var n = parseInt(el.textContent, 10);
+                if (isNaN(n)) n = 0;
+                var next = Math.max(0, n - 1);
+                if (next === 0) {
+                    el.remove();
+                } else {
+                    el.textContent = next > 9 ? '9+' : String(next);
+                }
+            });
         });
 }
 
@@ -597,11 +607,105 @@ function initAiChat() {
     var sendBtn    = document.getElementById('aiSendBtn');
     var micBtn     = document.getElementById('aiMicBtn');
     var speakerBtn = document.getElementById('aiSpeakerBtn');
+    var wrap       = document.getElementById('aiAssistantWrap');
+    var fab        = document.getElementById('aiAssistantFab');
+    var closeBtn   = document.getElementById('aiAssistantCloseBtn');
+    var panel      = document.getElementById('aiChatPanel');
     if (!form || !input || !messages) return;
 
+    function setAssistantOpen(open) {
+        if (!wrap) return;
+        wrap.classList.toggle('ai-assistant-wrap--open', open);
+        if (fab) fab.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (panel) panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+        if (open) {
+            updateVoiceHint();
+            window.setTimeout(function () {
+                input.focus();
+            }, 300);
+        }
+    }
+
+    function voiceSecureContextOk() {
+        if (window.isSecureContext) return true;
+        var host = window.location.hostname;
+        return host === 'localhost' || host === '127.0.0.1';
+    }
+
+    function voiceHintMessage() {
+        if (voiceSecureContextOk()) return '';
+        var host = window.location.hostname;
+        if (host === 'localhost' || host === '127.0.0.1') return '';
+        var httpsPort = window.SM_VOICE_HTTPS_PORT || '5006';
+        if (window.location.protocol === 'https:') return '';
+        return (
+            'For voice on phone use https://' + host + ':' + httpsPort +
+            ' (accept certificate once), then allow the microphone.'
+        );
+    }
+
+    function updateVoiceHint() {
+        var hint = document.getElementById('aiVoiceHint');
+        if (!hint) return;
+        var msg = voiceHintMessage();
+        if (msg) {
+            hint.textContent = msg;
+            hint.classList.remove('d-none');
+        } else {
+            hint.textContent = '';
+            hint.classList.add('d-none');
+        }
+    }
+
+    if (fab) {
+        fab.addEventListener('click', function () {
+            setAssistantOpen(!wrap.classList.contains('ai-assistant-wrap--open'));
+        });
+        bindAssistantFabLongPress(fab, function () {
+            setAssistantOpen(true);
+            startVoiceListening();
+        });
+    }
+    if (closeBtn) {
+        closeBtn.addEventListener('click', function () {
+            setAssistantOpen(false);
+        });
+    }
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && wrap && wrap.classList.contains('ai-assistant-wrap--open')) {
+            setAssistantOpen(false);
+        }
+    });
+
+    updateVoiceHint();
+
     // ── Text-to-Speech (Speech Synthesis API) ───────────────────
-    var voiceEnabled = true;  // ON by default
+    var voiceEnabled = true;
     var currentSpeakBubble = null;
+    var loadedVoices = [];
+
+    function refreshSpeechVoices() {
+        if (!window.speechSynthesis) return;
+        loadedVoices = window.speechSynthesis.getVoices() || [];
+    }
+
+    refreshSpeechVoices();
+    if (window.speechSynthesis) {
+        window.speechSynthesis.onvoiceschanged = refreshSpeechVoices;
+    }
+
+    /** iOS/Safari: unlock TTS from a user gesture so async replies can speak. */
+    function unlockSpeechSynthesis() {
+        if (!window.speechSynthesis) return;
+        try {
+            refreshSpeechVoices();
+            var u = new SpeechSynthesisUtterance('\u200b');
+            u.volume = 0.01;
+            u.rate = 10;
+            window.speechSynthesis.speak(u);
+            window.speechSynthesis.cancel();
+        } catch (e) {}
+    }
 
     function stripMarkdown(text) {
         return (text || '')
@@ -615,26 +719,27 @@ function initAiChat() {
 
     function speakText(text, bubbleEl) {
         if (!voiceEnabled || !window.speechSynthesis) return;
-        window.speechSynthesis.cancel();  // stop any ongoing speech
+        window.speechSynthesis.cancel();
         var cleaned = stripMarkdown(text);
         if (!cleaned) return;
+        refreshSpeechVoices();
         var utt = new SpeechSynthesisUtterance(cleaned);
-        utt.lang  = 'en-US';
-        utt.rate  = 1.05;
+        utt.lang = 'en-US';
+        utt.rate = 1.05;
         utt.pitch = 1.0;
         utt.volume = 1.0;
 
-        // Pick a natural voice if available
-        var voices = window.speechSynthesis.getVoices();
-        var preferred = voices.find(function(v) {
-            return /google us english|samantha|alex|karen/i.test(v.name) && v.lang.startsWith('en');
-        }) || voices.find(function(v) { return v.lang.startsWith('en'); });
+        var preferred = loadedVoices.find(function (v) {
+            return /google us english|samantha|alex|karen|daniel|zira/i.test(v.name) && v.lang.startsWith('en');
+        }) || loadedVoices.find(function (v) {
+            return v.lang.startsWith('en');
+        });
         if (preferred) utt.voice = preferred;
 
-        utt.onstart = function() {
+        utt.onstart = function () {
             if (bubbleEl) bubbleEl.classList.add('ai-bubble--speaking');
         };
-        utt.onend = utt.onerror = function() {
+        utt.onend = utt.onerror = function () {
             if (bubbleEl) bubbleEl.classList.remove('ai-bubble--speaking');
             currentSpeakBubble = null;
         };
@@ -660,85 +765,172 @@ function initAiChat() {
     }
 
     // ── Voice Recognition (Web Speech API) ──────────────────────
-    var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+    var SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition || null;
     var recognition = null;
     var isListening = false;
+    var voiceListenPending = false;
 
-    if (micBtn) {
-        if (!SpeechRecognition) {
-            // Browser doesn't support it (or blocked due to insecure HTTP context)
-            micBtn.classList.add('ai-mic--unsupported');
-            micBtn.title = 'Voice input not supported or requires HTTPS';
-            micBtn.addEventListener('click', function() {
-                var reason = window.isSecureContext === false
-                    ? '🔒 **Voice requires HTTPS.** Since you are accessing via a local IP address, the browser disabled the microphone. You can still type commands!'
-                    : '🎙️ Voice recognition is not supported in this browser. Try Chrome or Safari.';
-                appendBubble(reason, 'bot');
-            });
+    function resetMicUi() {
+        isListening = false;
+        voiceListenPending = false;
+        if (!micBtn) return;
+        micBtn.classList.remove('ai-mic--listening');
+        micBtn.innerHTML = '<i class="bi bi-mic-fill"></i>';
+        micBtn.title = 'Tap to speak — hold robot button for quick voice';
+        input.placeholder = 'Ask anything or speak 🎙️…';
+    }
+
+    function tryStartRecognitionEngine() {
+        if (!recognition) return;
+        try {
+            recognition.start();
+        } catch (e) {
+            var msg = String(e && e.message ? e.message : e);
+            if (/already started|recognition/i.test(msg)) {
+                try {
+                    recognition.stop();
+                } catch (e2) {}
+                window.setTimeout(function () {
+                    try {
+                        recognition.start();
+                    } catch (e3) {}
+                }, 280);
+            }
+        }
+    }
+
+    function requestMicThenListen() {
+        voiceListenPending = true;
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices
+                .getUserMedia({ audio: true })
+                .then(function (stream) {
+                    stream.getTracks().forEach(function (t) {
+                        t.stop();
+                    });
+                    if (voiceListenPending) tryStartRecognitionEngine();
+                })
+                .catch(function (err) {
+                    voiceListenPending = false;
+                    resetMicUi();
+                    var denied = err && (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError');
+                    appendBubble(
+                        denied
+                            ? '🔒 Microphone blocked. Allow mic access for this site in browser settings, then try again.'
+                            : '🎙️ Could not access microphone. Check permissions and try again.',
+                        'bot'
+                    );
+                });
         } else {
-            recognition = new SpeechRecognition();
+            tryStartRecognitionEngine();
+        }
+    }
+
+    function startVoiceListening() {
+        setAssistantOpen(true);
+        unlockSpeechSynthesis();
+
+        if (!voiceSecureContextOk()) {
+            var host = window.location.hostname;
+            var httpsPort = window.SM_VOICE_HTTPS_PORT || '5006';
+            appendBubble(
+                '🔒 **Voice on this device needs HTTPS.**\n\n' +
+                    '• **Phone:** open **https://' + host + ':' + httpsPort + '** (accept certificate once)\n' +
+                    '• **Mac/PC:** use **http://127.0.0.1:5005** — voice works there without HTTPS',
+                'bot'
+            );
+            return;
+        }
+
+        if (!SpeechRecognitionCtor) {
+            appendBubble(
+                '🎙️ Voice recognition is not supported in this browser. Try Chrome or Safari, or type your command.',
+                'bot'
+            );
+            return;
+        }
+
+        if (isListening) {
+            recognition.stop();
+            return;
+        }
+
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
+
+        if (!recognition) {
+            recognition = new SpeechRecognitionCtor();
             recognition.lang = 'en-US';
-            recognition.interimResults = false;
+            recognition.interimResults = true;
             recognition.maxAlternatives = 1;
             recognition.continuous = false;
 
-            recognition.onstart = function() {
+            recognition.onstart = function () {
                 isListening = true;
+                voiceListenPending = false;
                 micBtn.classList.add('ai-mic--listening');
                 micBtn.innerHTML = '<i class="bi bi-stop-fill"></i>';
-                micBtn.title = 'Listening… click to stop';
+                micBtn.title = 'Listening… tap to stop';
                 input.placeholder = '🎙️ Listening…';
             };
 
-            recognition.onresult = function(event) {
-                var transcript = (event.results[0][0].transcript || '').trim();
-                if (transcript) {
-                    input.value = transcript;
-                    sendMessage(transcript);
+            recognition.onresult = function (event) {
+                var interim = '';
+                var finalText = '';
+                for (var i = event.resultIndex; i < event.results.length; i++) {
+                    var piece = (event.results[i][0].transcript || '').trim();
+                    if (!piece) continue;
+                    if (event.results[i].isFinal) {
+                        finalText += (finalText ? ' ' : '') + piece;
+                    } else {
+                        interim += piece;
+                    }
+                }
+                if (interim) input.value = interim;
+                if (finalText) {
+                    input.value = finalText;
+                    sendMessage(finalText);
                     input.value = '';
                 }
             };
 
-            recognition.onerror = function(event) {
+            recognition.onerror = function (event) {
                 var errMap = {
-                    'no-speech':           '🤫 No speech detected. Try again.',
-                    'audio-capture':       '🎙️ Microphone not found.',
-                    'not-allowed':         '🔒 Microphone access denied. Please allow it in your browser.',
-                    'network':             '📡 Network error during recognition.',
-                    'aborted':             '',   // user stopped — silent
+                    'no-speech': '🤫 No speech heard. Tap the mic and try again.',
+                    'audio-capture': '🎙️ Microphone not found.',
+                    'not-allowed': '🔒 Microphone access denied. Allow it in browser settings.',
+                    'network': '📡 Voice service unavailable. Check connection or try typing.',
+                    'aborted': '',
+                    'service-not-allowed': '🔒 Voice blocked — use HTTPS (https://…) on mobile.',
                 };
-                var msg = errMap[event.error] || ('Recognition error: ' + event.error);
+                var msg = errMap[event.error] || 'Voice error: ' + event.error;
                 if (msg) appendBubble(msg, 'bot');
             };
 
-            recognition.onend = function() {
-                isListening = false;
-                micBtn.classList.remove('ai-mic--listening');
-                micBtn.innerHTML = '<i class="bi bi-mic-fill"></i>';
-                micBtn.title = 'Click to speak';
-                input.placeholder = 'Ask anything or speak 🎙️…';
+            recognition.onend = function () {
+                resetMicUi();
             };
-
-            micBtn.addEventListener('click', function() {
-                if (isListening) {
-                    recognition.stop();
-                } else {
-                    try {
-                        recognition.start();
-                    } catch(e) {
-                        // Already started — ignore
-                    }
-                }
-            });
         }
+
+        requestMicThenListen();
+    }
+
+    if (micBtn) {
+        if (!SpeechRecognitionCtor && !voiceSecureContextOk()) {
+            micBtn.classList.add('ai-mic--unsupported');
+            micBtn.title = 'Voice requires HTTPS on this device';
+        }
+        micBtn.addEventListener('click', function () {
+            startVoiceListening();
+        });
     }
 
     // Suggestion chips
     document.querySelectorAll('.ai-sugg-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {
+            unlockSpeechSynthesis();
             var msg = btn.getAttribute('data-msg') || '';
             if (msg) {
-                input.value = msg;
+                setAssistantOpen(true);
                 sendMessage(msg);
                 input.value = '';
             }
@@ -746,8 +938,9 @@ function initAiChat() {
     });
 
     // Form submit
-    form.addEventListener('submit', function(e) {
+    form.addEventListener('submit', function (e) {
         e.preventDefault();
+        unlockSpeechSynthesis();
         var msg = (input.value || '').trim();
         if (!msg) return;
         sendMessage(msg);
@@ -864,4 +1057,46 @@ function initAiChat() {
             input.focus();
         });
     }
+}
+
+/** Long-press floating assistant button → open + start voice (mobile-friendly). */
+function bindAssistantFabLongPress(fabEl, onLongPress) {
+    if (!fabEl || typeof onLongPress !== 'function') return;
+    var delayMs = 520;
+    var timer = null;
+    var longPressFired = false;
+
+    function clearTimer() {
+        if (timer) {
+            clearTimeout(timer);
+            timer = null;
+        }
+    }
+
+    function startHold() {
+        clearTimer();
+        longPressFired = false;
+        timer = setTimeout(function () {
+            longPressFired = true;
+            onLongPress();
+        }, delayMs);
+    }
+
+    fabEl.addEventListener('mousedown', startHold);
+    fabEl.addEventListener('touchstart', startHold, { passive: true });
+    fabEl.addEventListener('mouseup', clearTimer);
+    fabEl.addEventListener('mouseleave', clearTimer);
+    fabEl.addEventListener('touchend', clearTimer);
+    fabEl.addEventListener('touchcancel', clearTimer);
+    fabEl.addEventListener(
+        'click',
+        function (e) {
+            if (longPressFired) {
+                e.preventDefault();
+                e.stopPropagation();
+                longPressFired = false;
+            }
+        },
+        true
+    );
 }

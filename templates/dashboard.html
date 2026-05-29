@@ -27,51 +27,13 @@
         <div class="hero-particle hero-particle--e" aria-hidden="true"></div>
         <!-- Content -->
         <div class="row align-items-center position-relative" style="z-index:2;">
-            <div class="col-lg-5 mb-4 mb-lg-0">
+            <div class="col-12">
                 <div class="hero-status-pill">
                     <span class="hero-status-dot"></span> System Live
                 </div>
                 <h1 class="fw-bold display-6 mb-2 magic-gradient-text">Hello, {{ current_user.username }}</h1>
                 <p class="text-muted mb-0 fs-6">{{ devices|length }} device{% if devices|length != 1 %}s{% endif %} &nbsp;·&nbsp; <span id="dashboardOnDevicesText">{{ on_devices }}</span> on</p>
-            </div>
-            <div class="col-lg-7">
-                <!-- ── AI Chat Panel ── -->
-                <div class="ai-chat-panel" id="aiChatPanel">
-                    <div class="ai-chat-header">
-                        <span class="ai-chat-badge"><i class="bi bi-robot me-1"></i>AI Assistant</span>
-                        <span class="ai-chat-hint">Speak or type — I'll talk back!</span>
-                        <button type="button" class="ai-speaker-btn ai-speaker--on" id="aiSpeakerBtn" title="AI voice ON — click to mute">
-                            <i class="bi bi-volume-up-fill"></i>
-                        </button>
-                        <button type="button" class="ai-chat-clear-btn" id="aiClearBtn" title="Clear chat"><i class="bi bi-trash3"></i></button>
-                    </div>
-                    <div class="ai-chat-messages" id="aiChatMessages">
-                        <!-- Welcome bubble -->
-                        <div class="ai-bubble ai-bubble--bot">
-                            <span class="ai-bubble__avatar"><i class="bi bi-robot"></i></span>
-                            <div class="ai-bubble__body">
-                                <div class="ai-bubble__text">👋 Hi <strong>{{ current_user.username }}</strong>! I'm your Smart Home AI.<br>
-                                Type or <strong>🎙️ speak</strong> — say <em>"Turn on the fan"</em>, <em>"What's on?"</em>, <em>"Show energy"</em> and more.</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="ai-chat-suggestions" id="aiSuggestions">
-                        <button class="ai-sugg-btn" data-msg="What devices are on?">💡 What's on?</button>
-                        <button class="ai-sugg-btn" data-msg="Show device status">📋 Status</button>
-                        <button class="ai-sugg-btn" data-msg="Show energy usage">⚡ Energy</button>
-                        <button class="ai-sugg-btn" data-msg="Give me tips">💡 Tips</button>
-                        <button class="ai-sugg-btn" data-msg="Turn everything off">🌙 All off</button>
-                    </div>
-                    <form id="aiChatForm" class="ai-chat-input-row" autocomplete="off">
-                        <button type="button" class="ai-mic-btn" id="aiMicBtn" aria-label="Voice command" title="Click to speak">
-                            <i class="bi bi-mic-fill"></i>
-                        </button>
-                        <input type="text" id="aiChatInput" class="ai-chat-input" placeholder="Ask anything or speak 🎙️…" aria-label="AI command input" autocomplete="off">
-                        <button type="submit" class="ai-chat-send-btn" id="aiSendBtn" aria-label="Send">
-                            <i class="bi bi-send-fill"></i>
-                        </button>
-                    </form>
-                </div>
+                <p class="text-muted small mt-2 mb-0"><i class="bi bi-robot me-1"></i> Tap the floating assistant (bottom-right) — voice works on desktop at <strong>http://127.0.0.1:5005</strong>.</p>
             </div>
         </div>
     </div>
@@ -108,6 +70,36 @@
         </a>
     </div>
 </div>
+
+{% if energy_cost %}
+<div class="row g-3 mb-3 magic-reveal" style="--magic-delay:0.12s">
+    <div class="col-sm-6">
+        <div class="stat-tile stat-tile--warning h-100">
+            <div class="stat-tile__icon"><i class="bi bi-lightning" aria-hidden="true"></i></div>
+            <div class="stat-tile__meta">
+                <span class="stat-tile__label">Est. kWh today</span>
+                <span class="stat-tile__value">{{ energy_cost.kwh_today }}</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6">
+        <div class="stat-tile stat-tile--info h-100">
+            <div class="stat-tile__icon"><i class="bi bi-cash-coin" aria-hidden="true"></i></div>
+            <div class="stat-tile__meta">
+                <span class="stat-tile__label">{% if energy_cost.has_rate %}Cost today{% else %}Energy cost{% endif %}</span>
+                <span class="stat-tile__value" style="font-size:1.25rem;">
+                    {% if energy_cost.has_rate %}
+                    {{ energy_cost.cost_today }}
+                    <span class="small fw-normal text-muted">/ mo ~{{ energy_cost.cost_month_est }}</span>
+                    {% else %}
+                    <a href="{{ url_for('settings') }}" class="small text-primary text-decoration-none">Set rate →</a>
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 {% include 'includes/system_health.html' %}
 
